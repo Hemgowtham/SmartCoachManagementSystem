@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RailVision: Smart Coach Management</title>
+     <style>
+        /* --- CSS STYLES (ORIGINAL - DO NOT CHANGE) --- */
+        :root { --primary: #0056b3; --bg: #f4f7f6; --track: #555; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: #333; display: flex; flex-direction: column; align-items: center; padding: 20px; margin: 0; }
+
+        /* HEADER & SEARCH */
+        .header { width: 100%; max-width: 1000px; background: white; padding: 15px 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .brand h1 { margin: 0; color: var(--primary); font-size: 24px; text-transform: uppercase; }
+        .search-box input { padding: 10px; border: 2px solid #ddd; border-radius: 6px; outline: none; width: 200px; text-align: center; font-weight: bold;}
+        .search-box button { padding: 10px 20px; background: var(--primary); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; margin-left: 5px; }
+
+        /* INFO CARD */
+        .info-card { width: 100%; max-width: 1000px; background: white; padding: 20px; border-radius: 12px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 30px; border-left: 5px solid #e63946; }
+        .info-label { font-size: 11px; color: #888; text-transform: uppercase; font-weight: bold; }
+        .info-val { font-size: 16px; font-weight: bold; color: #333; }
+        
+         /* --- SIMPLIFIED TRACK UI (NO IMAGE) --- */
+        .track-wrapper { width: 100%; max-width: 950px; position: relative; margin-bottom: 50px; padding-top: 40px; height: 80px; }	
+
+        /* THE SIMPLE LINE */
+        .rail { 
+            position: absolute; 
+            top: 60px; /* Center with the dots */
+            left: 0; 
+            width: 100%; 
+            height: 6px; 
+            background: #e0e0e0; /* Light Grey Background */
+            border-top: 2px solid #999; /* Darker edges for depth */
+            border-bottom: 2px solid #999;
+            border-radius: 4px;
+            z-index: 0;
+        }
+
+        .progress { position: absolute; top: 62px; left: 0; height: 4px; background: #28a745; width: 0%; transition: width 0.5s; z-index: 1; box-shadow: 0 0 8px #28a745; }
+        
+        .stations { display: flex; justify-content: space-between; position: relative; z-index: 2; }
+        .station-node { display: flex; flex-direction: column; align-items: center; cursor: pointer; width: 80px; transition: 0.3s; }
+        
+        
+        .st-img { width: 40px; height: 40px; background: white; border: 3px solid #ccc; border-radius: 50%; margin-bottom: 5px; transition: 0.3s; object-fit: cover; box-shadow: 0 4px 6px rgba(0,0,0,0.1); position: relative; z-index: 2; }
+        .station-node.active .st-img { border-color: #28a745; transform: scale(1.2); box-shadow: 0 0 10px rgba(40, 167, 69, 0.5); }
+        .st-name { font-size: 11px; font-weight: bold; color: #888; text-align: center; }
+        .st-reversal { color: #d63031; font-weight: 800; font-size: 10px; margin-top: 2px; display: none; }
+        .station-node.reversal .st-reversal { display: block; }
+
+        /* TRAIN UI (RESTORED ORIGINAL) */
+        .train-container { width: 100%; max-width: 950px; overflow-x: auto; padding-bottom: 20px; scroll-behavior: smooth; }
+        .train-display { display: flex; align-items: flex-end; padding: 40px 20px; gap: 150px; min-width: max-content; }
+        
+        .bogie { position: relative; width: 150px; margin-right: 5px; transition: all 0.5s ease; flex-shrink: 0; }
+        .bogie img { height: 60px; width: auto; display: block; filter: drop-shadow(5px 5px 5px rgba(0,0,0,0.2)); }
+        
+        .bogie.loco-style { width: 160px; z-index: 5; margin-right: -27px; }
+        .bogie.loco-style img { height: 60px; filter: drop-shadow(0 0 5px rgba(0,0,0,0.5)); transform: scale(1.1); }
+        
+        /* CROWD METER */
+        .capacity-bar { position: absolute; top: -25px; left: 50%; transform: translateX(-50%); width: 60px; height: 8px; background: #ddd; border-radius: 4px; overflow: hidden; border: 1px solid #aaa; }
+        .capacity-fill { height: 100%; width: 0%; background: #28a745; transition: width 0.5s; }
+        .tint { position: absolute; top: 35%; left: 5%; width: 90%; height: 25%; mix-blend-mode: multiply; border-radius: 2px; opacity: 0.6; transition: 0.5s; }
+        .bogie-label { text-align: center; font-size: 10px; font-weight: bold; margin-top: 5px; color: #444; }
+
+        /* BADGES */
+        .amenity-icon { position: absolute; top: -45px; right: 0px; width: 25px; height: 25px; background: white; border-radius: 50%; padding: 3px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); z-index: 12;}
+        .best-badge { display: none; position: absolute; top: -50px; left: 50%; transform: translateX(-50%); background: #28a745; color: white; padding: 3px 10px; border-radius: 10px; font-size: 10px; font-weight: bold; white-space: nowrap; animation: bounce 1s infinite; }
+        .bogie.best-choice .best-badge { display: block; }
+        @keyframes bounce { 0%, 100% { top: -50px; } 50% { top: -55px; } }
+
+        /* ALERT & BUTTONS */
+        .alert-box { grid-column: span 4; background: #fff3cd; color: #856404; padding: 10px; border-radius: 5px; border: 1px solid #ffeeba; text-align: center; display: none; }
+        .btn-row { margin-top: 20px; display: flex; gap: 15px; }
+        .action-btn { padding: 12px 30px; border: none; border-radius: 30px; font-weight: bold; cursor: pointer; color: white; background: #333; transition: 0.2s; }
+        .action-btn:hover { transform: scale(1.05); }
+        .rec-btn { background: #28a745; }
+
+        /* MOBILE RESPONSIVE */
+        @media (max-width: 768px) {
+            body { padding: 10px; }
+            .header { flex-direction: column; padding: 15px; gap: 15px; }
+            .info-card { grid-template-columns: 1fr 1fr; gap: 15px; }
+            
+            .track-wrapper { height: 400px; padding-top: 10px; display: flex; margin-bottom: 30px; }
+            .rail { width: 6px; height: 100%; top: 0; left: 22px; background: #e0e0e0; border: none; border-left: 2px solid #999; border-right: 2px solid #999; }
+            .progress { width: 4px; height: 0%; top: 0; left: 33px; }
+            .stations { flex-direction: column; height: 100%; width: 100%; margin-left: 70px; }
+            .station-node { flex-direction: row; height: 100%; justify-content: flex-start; margin-left: -60px; }
+            .st-img { margin-bottom: 0; margin-right: 15px; }
+            
+            .train-display { gap: 80px; padding: 20px 10px; }
+            .bogie { width: 80px; margin-right: 18px; }
+            .bogie img { height: 35px; }
+            .bogie.loco-style { width: 90px; margin-right: -5px; }
+            .bogie.loco-style img { height: 35px; }
+            .capacity-bar { width: 40px; height: 5px; top: -15px; }
+            .best-badge { top: -35px; padding: 2px 6px; font-size: 9px; }
+            @keyframes bounce { 0%, 100% { top: -35px; } 50% { top: -38px; } }
+            .bogie-label { font-size: 8px; }
+            .amenity-icon { width: 15px; height: 15px; top: -25px; }
+            .btn-row { flex-direction: column; width: 100%; gap: 10px; }
+            .action-btn { width: 100%; font-size: 14px; padding: 10px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <div class="brand">
+            <h1>RailVision</h1>
+            <p>Smart Coach Management</p>
+        </div>
+        <div class="search-box">
+            <input type="text" id="trainInput" placeholder="Enter Train No">
+            <button onclick="loadTrainData()">Search</button>
+        </div>
+    </div>
+
+    <div class="info-card">
+        <div><div class="info-label">Train Name</div><div class="info-val" id="tName">--</div></div>
+        <div><div class="info-label">Train No</div><div class="info-val" id="tNo">--</div></div>
+        <div><div class="info-label">Route</div><div class="info-val" id="tRoute">--</div></div>
+        <div><div class="info-label">Type</div><div class="info-val" id="tType">--</div></div>
+        <div class="alert-box" id="reverseAlert">⚠️ <b>Engine Reversal Alert:</b> Train direction will change at <span id="revStationName"></span>!</div>
+    </div>
+
+    <div class="track-wrapper">
+        <div class="rail"></div>
+        <div class="progress" id="progressBar"></div>
+        <div class="stations" id="stationsContainer"></div>
+    </div>
+
+    <div class="train-container" id="scrollBox">
+        <div class="train-display" id="trainDisplay"></div>
+    </div>
+
+    <div class="btn-row">
+        <button class="action-btn" onclick="fetchStatus()">🔄 Refresh Data</button>
+        <button class="action-btn rec-btn" onclick="findBestCoach()">Find Empty Coach</button>
+    </div>
+
+    <script>
+        // --- EXPANDED DATABASE (7 TRAINS TOTAL) ---
+        const trainDatabase = [
+            // 1. ORIGINAL (Mixed)
+            {
+                number: "12704", name: "Falaknuma Express", route_str: "SC -> HWH", type: "Express",
+                reversal_at: "Vijayawada", stations: ["Vijayawada", "Mustabada", "Gannavaram", "Nuzvid"],
+                composition: ["LOCO", "GEN", "GEN", "S1", "S2", "B1", "B2", "AC1", "GEN", "GEN"] 
+            },
+            // 2. NEW EXPRESS (Mixed - Reserved Coaches)
+            {
+                number: "12727", name: "Godavari Express", route_str: "VSKP -> HYB", type: "Express",
+                reversal_at: null, stations: ["Visakhapatnam", "Duvvada", "Anakapalle", "Tuni"],
+                composition: ["LOCO", "GEN", "GEN", "S1", "S2", "S3", "S4", "B1", "AC1", "GEN", "GEN"]
+            },
+            // 3. NEW EXPRESS (Mixed - Reserved Coaches)
+            {
+                number: "11020", name: "Konark Express", route_str: "BBS -> CSMT", type: "Express",
+                reversal_at: "Visakhapatnam", stations: ["Bhubaneswar", "Khurda", "Berhampur", "Visakhapatnam"],
+                composition: ["LOCO", "GEN", "S1", "S2", "S3", "B1", "B2", "AC1", "AC2", "GEN"]
+            },
+            // 4. NEW LOCAL (All General)
+            {
+                number: "67213", name: "Vijayawada MEMU", route_str: "BZA -> GNT", type: "Local",
+                reversal_at: null, stations: ["Vijayawada", "Krishna Canal", "Mangalagiri", "Guntur"],
+                composition: ["LOCO", "GEN", "GEN", "GEN", "GEN", "GEN", "GEN", "GEN", "GEN"]
+            },
+            // 5. NEW LOCAL (All General)
+            {
+                number: "47158", name: "Lingampalli MMTS", route_str: "LPI -> FM", type: "Local",
+                reversal_at: null, stations: ["Lingampalli", "Chandanagar", "Hafizpet", "Hitech City"],
+                composition: ["LOCO", "GEN", "GEN", "GEN", "GEN", "GEN", "GEN"]
+            },
+            // 6. NEW LOCAL (All General)
+            {
+                number: "07777", name: "Kakinada DEMU", route_str: "COA -> RJY", type: "Local",
+                reversal_at: null, stations: ["Kakinada Port", "Kakinada Town", "Samalkot", "Anaparti"],
+                composition: ["LOCO", "GEN", "GEN", "GEN", "GEN", "GEN", "GEN", "GEN", "GEN"]
+            },
+            // 7. ORIGINAL (Was Mixed)
+            {
+                number: "17201", name: "Golconda Express", route_str: "GNT -> SC", type: "Express",
+                reversal_at: null, stations: ["Guntur", "Vijayawada", "Khammam", "Warangal"],
+                composition: ["LOCO", "GEN", "GEN", "C1", "D1", "D2", "GEN", "GEN"]
+            }
+        ];
+
+        let activeTrain = null;
+        let pollingInterval = null;
+
+        function loadTrainData() {
+            const input = document.getElementById('trainInput').value;
+            const train = trainDatabase.find(t => t.number === input);
+
+            if (!train) {
+                alert("Train not found! Try: 12704, 12727, 11020, 67213, 47158");
+                return;
+            }
+
+            activeTrain = train;
+            
+            document.getElementById('tName').innerText = train.name;
+            document.getElementById('tNo').innerText = train.number;
+            document.getElementById('tRoute').innerText = train.route_str;
+            document.getElementById('tType').innerText = train.type;
+            
+            const alertBox = document.getElementById('reverseAlert');
+            if (train.reversal_at) {
+                document.getElementById('revStationName').innerText = train.reversal_at;
+                alertBox.style.display = "block";
+            } else {
+                alertBox.style.display = "none";
+            }
+
+            renderStations(null);
+            
+            if(pollingInterval) clearInterval(pollingInterval);
+            pollingInterval = setInterval(fetchStatus, 2000);
+            fetchStatus();
+        }
+
+        async function fetchStatus() {
+            if(!activeTrain) return;
+
+            try {
+                const response = await fetch('/api/get_status');
+                const data = await response.json();
+
+                // Update Stations
+                const stIndex = activeTrain.stations.indexOf(data.current_station);
+                const safeStation = stIndex !== -1 ? data.current_station : activeTrain.stations[0];
+                
+                renderStations(safeStation);
+                updateProgressBar(activeTrain.stations.indexOf(safeStation), activeTrain.stations.length);
+                
+                // Update Train
+                renderTrain(data.coaches, data.is_reversed);
+
+            } catch (err) {
+                console.error("Connection failed:", err);
+            }
+        }
+
+        function updateProgressBar(idx, total) {
+            const percent = (idx / (total - 1)) * 100;
+            const bar = document.getElementById('progressBar');
+            if (window.innerWidth <= 768) {
+                bar.style.height = percent + "%"; 
+                bar.style.width = "4px";          
+            } else {
+                bar.style.width = percent + "%";  
+                bar.style.height = "4px";         
+            }
+        }
+
+        function renderStations(currentStationName) {
+            const container = document.getElementById('stationsContainer');
+            container.innerHTML = "";
+            const cityImages = [
+                "https://images.unsplash.com/photo-1542856391-010fb87dcfed?w=100&h=100&fit=crop", 
+                "https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?w=100&h=100&fit=crop", 
+                "https://images.unsplash.com/photo-1480714378408-67cf0d13bc1b?w=100&h=100&fit=crop", 
+                "https://images.unsplash.com/photo-1514565131-fce0801e5785?w=100&h=100&fit=crop"
+            ];
+
+            activeTrain.stations.forEach((st, index) => {
+                const isReversal = (st === activeTrain.reversal_at);
+                const isActive = (st === currentStationName);
+                
+                const node = document.createElement('div');
+                node.className = `station-node ${isActive ? 'active' : ''}`;
+                
+                const imgUrl = cityImages[index % cityImages.length];
+                node.innerHTML = `
+                    <img src="${imgUrl}" class="st-img">
+                    <div>
+                        <div class="st-name">${st}</div>
+                        ${isReversal ? '<div class="st-reversal">REVERSAL</div>' : ''}
+                    </div>
+                `;
+                container.appendChild(node);
+            });
+        }
+
+        function renderTrain(crowdData, isReversed) {
+            const container = document.getElementById('trainDisplay');
+            container.innerHTML = "";
+            
+            let fullComposition = [];
+            let counts = { GEN: 1, S: 1, AC: 1, B: 1, C: 1, D: 1, LOCO: 1 };
+            
+            activeTrain.composition.forEach(type => {
+                let id = type;
+                if(type === "GEN") {
+                    id = `GEN-${counts.GEN}`;
+                    counts.GEN++;
+                }
+                fullComposition.push({ id: id, type: type });
+            });
+
+            if (isReversed) {
+                const loco = fullComposition.shift();
+                fullComposition.reverse();
+                fullComposition.unshift(loco);
+            }
+
+            fullComposition.forEach((coach, i) => {
+                const bogie = document.createElement('div');
+                bogie.className = 'bogie';
+                if (coach.type === "LOCO") bogie.classList.add('loco-style');
+                
+                bogie.id = `bogie-${i}`;
+                
+                const isGeneral = (coach.type === "GEN");
+                let crowd = crowdData[coach.id] || 0;
+                
+                let color = '#28a745'; 
+                if (crowd > 50) color = '#ffc107';
+                if (crowd > 85) color = '#dc3545';
+                
+                let imgUrl = coach.type === "LOCO" ? "/static/engine.png" : "/static/coach.png";
+                let imgStyle = "";
+                
+                if (!isGeneral && coach.type !== "LOCO") {
+                    imgStyle = "filter: grayscale(100%); opacity: 0.7;";
+                }
+
+                let html = `
+                    ${isGeneral ? `<div class="best-badge">BEST</div>` : ''}
+                    ${isGeneral ? `<div class="capacity-bar"><div class="capacity-fill" style="width:${crowd}%; background:${color}"></div></div>` : ''}
+                    <div class="tint" style="background:${color}; display:${isGeneral ? 'block' : 'none'}"></div>
+                    <img src="${imgUrl}" style="${imgStyle}">
+                    <div class="bogie-label">${coach.id} ${isGeneral ? `(${crowd}%)` : '(Rsrv)'}</div>
+                `;
+
+                bogie.dataset.type = coach.type;
+                bogie.dataset.crowd = crowd;
+                bogie.innerHTML = html;
+                container.appendChild(bogie);
+            });
+        }
+
+        function findBestCoach() {
+            if (!activeTrain) return;
+            let minCrowd = Infinity;
+            let bestId = null;
+            
+            const bogies = document.querySelectorAll('.bogie');
+            bogies.forEach(b => b.classList.remove('best-choice'));
+
+            bogies.forEach(b => {
+                if (b.dataset.type === 'GEN') {
+                    let c = parseInt(b.dataset.crowd) || 0;
+                    if (c < minCrowd) {
+                        minCrowd = c;
+                        bestId = b.id;
+                    }
+                }
+            });
+
+            if (bestId) {
+                const target = document.getElementById(bestId);
+                target.classList.add('best-choice');
+                target.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+            } else {
+                alert("No empty General coaches found.");
+            }
+        }
+
+        document.getElementById('trainInput').value = "12704";
+        loadTrainData();
+
+    </script>
+</body>
+</html>

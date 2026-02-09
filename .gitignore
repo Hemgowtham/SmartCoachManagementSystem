@@ -1,0 +1,6 @@
+__pycache__/
+env/
+venv/
+*.pt
+static/captures/*
+test_images/*
