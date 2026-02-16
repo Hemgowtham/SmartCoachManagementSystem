@@ -17,21 +17,21 @@ def process_all_images():
     ensure_dir(SAVE_DIR)
     
     # 1. Load YOLO Model
-    print("🔄 Loading YOLOv8 Model...")
+    print("Loading YOLOv8 Model...")
     model = YOLO("yolov8n.pt") 
 
     # 2. Get list of all images in 'test_images' folder
     if not os.path.exists(TEST_IMAGES_DIR):
-        print(f"❌ Error: Folder '{TEST_IMAGES_DIR}' not found. Please create it and add images.")
+        print(f"Error: Folder '{TEST_IMAGES_DIR}' not found. Please create it and add images.")
         return
 
     image_files = [f for f in os.listdir(TEST_IMAGES_DIR) if f.endswith(('.jpg', '.jpeg', '.png'))]
     
     if not image_files:
-        print(f"⚠️ No images found in {TEST_IMAGES_DIR}!")
+        print(f"No images found in {TEST_IMAGES_DIR}!")
         return
 
-    print(f"📸 Found {len(image_files)} images. Processing...")
+    print(f"Found {len(image_files)} images. Processing...")
 
     # 3. Loop through each image
     for img_file in image_files:
@@ -42,7 +42,7 @@ def process_all_images():
         # Read Image
         img = cv2.imread(img_path)
         if img is None:
-            print(f"❌ Could not read {img_file}")
+            print(f"Could not read {img_file}")
             continue
 
         # Detect People (Class 0)
@@ -72,14 +72,14 @@ def process_all_images():
         
         try:
             requests.post(SERVER_URL, json=payload)
-            print(f"✅ {coach_id}: Detected {count} people ({density}%) -> Sent to Server")
+            print(f"{coach_id}: Detected {count} people ({density}%) -> Sent to Server")
         except:
-            print(f"❌ {coach_id}: Failed to send data (Is app.py running?)")
+            print(f"{coach_id}: Failed to send data (Is app.py running?)")
 
-    print("\n🎉 All images processed! Refresh your Admin Dashboard.")
+    print("\nAll images processed! Refresh your Admin Dashboard.")
 
 if __name__ == "__main__":
     while True:
         process_all_images()
-        print("⏳ Waiting 10 seconds before next scan...\n")
+        print("Waiting 10 seconds before next scan...\n")
         time.sleep(10)

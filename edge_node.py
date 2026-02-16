@@ -16,16 +16,16 @@ COACH_IMAGES = {
 SAVE_DIR = "static/captures"
 
 def edge_process():
-    print("🚀 Starting Edge Node (Local AI Processing)...")
+    print("Starting Edge Node (Local AI Processing)...")
     # 1. LOAD MODEL LOCALLY (This is Edge Processing)
     model = YOLO("yolov8n.pt") 
 
     while True:
-        print("\n🔄 [EDGE] Scanning Cameras...")
+        print("\n[EDGE] Scanning Cameras...")
         
         for coach_id, img_path in COACH_IMAGES.items():
             if not os.path.exists(img_path):
-                print(f"   ⚠️ Image not found: {img_path}")
+                print(f"Image not found: {img_path}")
                 continue
 
             # 2. LOCAL PROCESSING
@@ -52,9 +52,9 @@ def edge_process():
             
             try:
                 requests.post(SERVER_URL, json=payload)
-                print(f"   ✅ [EDGE] {coach_id}: Processed {count} pax ({density}%) -> Sent JSON.")
+                print(f"[EDGE] {coach_id}: Processed {count} pax ({density}%) -> Sent JSON.")
             except:
-                print("   ❌ Server Disconnected")
+                print("Server Disconnected")
 
         time.sleep(5)
 

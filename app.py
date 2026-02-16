@@ -11,7 +11,7 @@ CORS(app)
 
 # --- CONFIG ---
 # Load AI Model (Simulating the Edge Node logic for the Web Demo)
-print("🔄 Loading YOLOv8 Model...")
+print("Loading YOLOv8 Model...")
 model = YOLO("yolov8n.pt") 
 
 # DATABASE
@@ -81,7 +81,7 @@ def simulate_edge_processing():
 # This is where the REAL Edge Node sends data.
 # Note: It only receives JSON (crowd %), NOT the image processing work.
 @app.route('/api/update_crowd', methods=['POST'])
-def update_crowd():
+def update_crowd(): 
     data = request.json
     coach_id = data.get('coach_id')
     crowd_percent = data.get('crowd_percent')

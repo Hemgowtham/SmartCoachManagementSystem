@@ -33,13 +33,13 @@ def simulate_journey():
                 
                 try:
                     requests.post(URL, json=payload)
-                    print(f"   📡 Sent Data: GEN-1={payload['crowd_data']['GEN-1']}%")
+                    print(f"Sent Data: GEN-1={payload['crowd_data']['GEN-1']}%")
                 except:
-                    print("   ❌ Server not running!")
+                    print("Server not running!")
                 
                 time.sleep(2) # Wait 2 seconds
 
 if __name__ == "__main__":
-    print("🎥 Camera Simulator Started...")
+    print("Camera Simulator Started...")
     time.sleep(1)
     simulate_journey()
