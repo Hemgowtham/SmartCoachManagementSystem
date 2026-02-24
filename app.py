@@ -30,8 +30,7 @@ STATION_NAMES = {
 
 def format_station(code):
     name = STATION_NAMES.get(code, code)
-    if name == code:
-        return name
+    if name == code: return name
     return f"{name} ({code})"
 
 def load_train_database():
@@ -40,19 +39,16 @@ def load_train_database():
             reader = csv.DictReader(file)
             for row in reader:
                 composition = [{"id": "LOCO", "type": "LOCO", "flags": []}]
-                gen_count = 1
-                rsrv_count = 1
+                gen_count, rsrv_count = 1, 1
                 
                 front_flags = []
                 if "1-Front" in row['Female_Coach_Pos']: front_flags.append("female")
                 if "1-Front" in row['Disabled_Coach_Pos']: front_flags.append("disabled")
-                if front_flags:
-                    composition.append({"id": "SLR-1", "type": "SLR", "flags": front_flags})
+                if front_flags: composition.append({"id": "SLR-1", "type": "SLR", "flags": front_flags})
 
                 for _ in range(int(row['Gen_Front'])):
                     composition.append({"id": f"GEN-{gen_count}", "type": "GEN", "flags": []})
                     gen_count += 1
-                    
                 for _ in range(int(row['Reserved_Coaches'])):
                     composition.append({"id": f"RSRV-{rsrv_count}", "type": "RSRV", "flags": []})
                     rsrv_count += 1
@@ -60,8 +56,7 @@ def load_train_database():
                 mid_flags = []
                 if "1-Middle" in row['Female_Coach_Pos']: mid_flags.append("female")
                 if "1-Middle" in row['Disabled_Coach_Pos']: mid_flags.append("disabled")
-                if mid_flags:
-                    composition.append({"id": "SLR-M", "type": "SLR", "flags": mid_flags})
+                if mid_flags: composition.append({"id": "SLR-M", "type": "SLR", "flags": mid_flags})
 
                 for _ in range(int(row['Gen_Back'])):
                     composition.append({"id": f"GEN-{gen_count}", "type": "GEN", "flags": []})
@@ -70,205 +65,185 @@ def load_train_database():
                 back_flags = []
                 if "1-Back" in row['Female_Coach_Pos']: back_flags.append("female")
                 if "1-Back" in row['Disabled_Coach_Pos']: back_flags.append("disabled")
-                if back_flags:
-                    composition.append({"id": "SLR-2", "type": "SLR", "flags": back_flags})
+                if back_flags: composition.append({"id": "SLR-2", "type": "SLR", "flags": back_flags})
 
-                stations_list = row['Halts'].split('|')
-                arr_list = row['Arrival_Times'].split('|')
-                dep_list = row['Departure_Times'].split('|')
-                
                 stations_data = []
-                for idx, st in enumerate(stations_list):
-                    formatted_name = format_station(st)
-                    ALL_STATIONS.add(formatted_name)
-                    arr = arr_list[idx] if idx < len(arr_list) else "--:--"
-                    dep = dep_list[idx] if idx < len(dep_list) else "--:--"
-                    stations_data.append({"name": formatted_name, "code": st, "arr": arr, "dep": dep})
+                for idx, st in enumerate(row['Halts'].split('|')):
+                    fname = format_station(st)
+                    ALL_STATIONS.add(fname)
+                    arr = row['Arrival_Times'].split('|')[idx] if idx < len(row['Arrival_Times'].split('|')) else "--:--"
+                    dep = row['Departure_Times'].split('|')[idx] if idx < len(row['Departure_Times'].split('|')) else "--:--"
+                    stations_data.append({"name": fname, "code": st, "arr": arr, "dep": dep})
                 
-                reversal = format_station(row['Reversal_Station'])
-                dest_formatted = format_station(row['Destination'])
-                if reversal == dest_formatted:
-                    reversal = None
-
+                rev = format_station(row['Reversal_Station'])
+                dest = format_station(row['Destination'])
+                
                 TRAIN_DB[row['Train_No']] = {
-                    "number": row['Train_No'],
-                    "name": row['Train_Name'],
-                    "type": row['Train_Type'],
-                    "route_str": f"{format_station(row['Origin'])} -> {dest_formatted}",
-                    "route_start": format_station(row['Origin']),
-                    "route_end": dest_formatted,
-                    "reversal_at": reversal,
-                    "stations": stations_data,
-                    "composition": composition
+                    "number": row['Train_No'], "name": row['Train_Name'], "type": row['Train_Type'],
+                    "route_str": f"{format_station(row['Origin'])} -> {dest}",
+                    "route_start": format_station(row['Origin']), "route_end": dest,
+                    "reversal_at": None if rev == dest else rev, "stations": stations_data, "composition": composition
                 }
-        print(f"Loaded {len(TRAIN_DB)} trains from database.")
-    except Exception as e:
-        print(f"Error loading train_database.csv: {e}")
+    except Exception as e: print(f"DB Error: {e}")
 
 load_train_database()
 
-# MANUAL OVERRIDE: Pre-filling the system with manual data and images for demonstration
 train_state_coaches = {
-    "GEN-1": {"crowd": 85, "image": "/test_images/GEN-1.jpg"},
-    "GEN-2": {"crowd": 45, "image": "/test_images/GEN-2.jpg"},
-    "GEN-3": {"crowd": 20, "image": "/test_images/GEN-3.jpg"},
-    "GEN-4": {"crowd": 95, "image": "/test_images/GEN-4.jpg"},
-    "SLR-1": {"crowd": 30, "image": "/test_images/GEN-1.jpg"},
-    "SLR-2": {"crowd": 15, "image": "/test_images/GEN-2.jpg"},
-    "SLR-M": {"crowd": 50, "image": "/test_images/GEN-3.jpg"}
+    "GEN-1": {"crowd": 0, "image_src": "test_images/GEN-1.jpg", "image": None},
+    "GEN-2": {"crowd": 0, "image_src": "test_images/GEN-2.jpg", "image": None},
+    "GEN-3": {"crowd": 0, "image_src": "test_images/GEN-3.jpg", "image": None},
+    "GEN-4": {"crowd": 0, "image_src": "test_images/GEN-4.jpg", "image": None},
+    "SLR-1": {"crowd": 0, "image_src": "test_images/SLR-1.jpg", "image": None},
+    "SLR-2": {"crowd": 0, "image_src": "test_images/SLR-2.jpg", "image": None},
+    "SLR-M": {"crowd": 0, "image_src": "test_images/SLR-M.jpg", "image": None}
 }
 
+def calculate_and_visualize_density(img, results):
+    h, w = img.shape[:2]
+    boxes = results[0].boxes.xyxy.cpu().numpy()
+    count = len(boxes)
+
+    if count == 0:
+        return 0, img.copy()
+
+    grid_size = int(w / 35) 
+    overlay = np.zeros_like(img)
+    
+    total_valid_cells = 0
+    occupied_cells = 0
+
+    for y in range(0, h, grid_size):
+        for x in range(0, w, grid_size):
+            total_valid_cells += 1
+            cell_x1, cell_y1 = x, y
+            cell_x2, cell_y2 = min(x + grid_size, w), min(y + grid_size, h)
+            
+            is_occupied = False
+            for box in boxes:
+                bx1, by1, bx2, by2 = map(int, box[:4])
+                bw = bx2 - bx1
+                bh = by2 - by1
+                core_x1 = bx1 + int(bw * 0.15)
+                core_x2 = bx2 - int(bw * 0.15)
+                core_y1 = by1 + int(bh * 0.15)
+                core_y2 = by2
+                
+                if (cell_x1 < core_x2 and cell_x2 > core_x1 and
+                    cell_y1 < core_y2 and cell_y2 > core_y1):
+                    is_occupied = True
+                    break
+                    
+            if is_occupied:
+                cv2.rectangle(overlay, (cell_x1, cell_y1), (cell_x2, cell_y2), (0, 0, 255), -1) 
+                occupied_cells += 1
+                
+    MAX_GRID_FILL = 0.45
+    if total_valid_cells > 0:
+        raw_fill = occupied_cells / total_valid_cells
+        density = int((raw_fill / MAX_GRID_FILL) * 100)
+    else:
+        density = 0
+        
+    density = min(density, 100) 
+    visual_img = cv2.addWeighted(img, 0.6, overlay, 0.4, 0)
+        
+    return density, visual_img
+
+def process_startup_images():
+    print("Initializing Server: Clean Heatmap Analytics...")
+    if not os.path.exists('static/captures'): os.makedirs('static/captures')
+    for coach_id, data in train_state_coaches.items():
+        img_path = data.get("image_src")
+        if os.path.exists(img_path):
+            img = cv2.imread(img_path)
+            results = model.predict(img, classes=[0], conf=0.25, verbose=False)
+            density, visual_img = calculate_and_visualize_density(img, results)
+            filename = f"{coach_id}_startup.jpg"
+            cv2.imwrite(os.path.join("static/captures", filename), visual_img)
+            train_state_coaches[coach_id]["crowd"] = density
+            train_state_coaches[coach_id]["image"] = f"/static/captures/{filename}"
+
+process_startup_images()
+
 @app.route('/')
-def passenger_dashboard():
-    return render_template('index.html')
+def passenger_dashboard(): return render_template('index.html')
 
 @app.route('/admin')
-def admin_dashboard():
-    return render_template('admin.html')
+def admin_dashboard(): return render_template('admin.html')
 
-# NEW ROUTE: Serve the manual test images directly to the dashboard
 @app.route('/test_images/<filename>')
-def serve_test_images(filename):
-    return send_from_directory('test_images', filename)
+def serve_test_images(filename): return send_from_directory('test_images', filename)
 
 @app.route('/api/get_train/<train_no>', methods=['GET'])
 def get_train(train_no):
-    if train_no in TRAIN_DB:
-        return jsonify(TRAIN_DB[train_no])
+    if train_no in TRAIN_DB: return jsonify(TRAIN_DB[train_no])
     return jsonify({"error": "Train not found"}), 404
 
 @app.route('/api/stations', methods=['GET'])
-def get_stations():
-    return jsonify(sorted(list(ALL_STATIONS)))
+def get_stations(): return jsonify(sorted(list(ALL_STATIONS)))
 
 @app.route('/api/train_list', methods=['GET'])
-def get_train_list():
-    trains = [{"number": t["number"], "name": t["name"]} for t in TRAIN_DB.values()]
-    return jsonify(trains)
+def get_train_list(): return jsonify([{"number": t["number"], "name": t["name"]} for t in TRAIN_DB.values()])
 
 @app.route('/api/search_route', methods=['GET'])
 def search_route():
-    src = request.args.get('src', '').lower()
-    dest = request.args.get('dest', '').lower()
+    src, dest = request.args.get('src', '').lower(), request.args.get('dest', '').lower()
     results = []
-    
     for t_no, t_data in TRAIN_DB.items():
         st_names = [s['name'].lower() for s in t_data['stations']]
-        
         src_match = next((s for s in st_names if src in s), None)
         dest_match = next((s for s in st_names if dest in s), None)
-
-        if src_match and dest_match:
-            src_idx = st_names.index(src_match)
-            dest_idx = st_names.index(dest_match)
-            if src_idx < dest_idx:
-                results.append({
-                    "number": t_no, 
-                    "name": t_data['name'], 
-                    "type": t_data['type'], 
-                    "departure": t_data['stations'][src_idx]['dep']
-                })
+        if src_match and dest_match and st_names.index(src_match) < st_names.index(dest_match):
+            results.append({"number": t_no, "name": t_data['name'], "type": t_data['type'], "departure": t_data['stations'][st_names.index(src_match)]['dep']})
     return jsonify(results)
 
 @app.route('/api/log_segment', methods=['POST'])
 def log_segment():
     try:
         data = request.json
+        clean_name = lambda val: val.split(' (')[0].strip() if val else "Unknown"
+        avg_val = round(sum(c['crowd'] for c in train_state_coaches.values()) / max(1, len(train_state_coaches)), 2)
+        crowd_cat = "Critical" if avg_val > 85 else "High" if avg_val > 60 else "Medium" if avg_val > 30 else "Low"
         
-        def clean_name(val):
-            if not val: return "Unknown"
-            return val.split(' (')[0].strip()
-
-        train_no = data.get('train_no', 'Unknown')
-        route_start = clean_name(data.get('route_start', 'Unknown'))
-        route_end = clean_name(data.get('route_end', 'Unknown'))
-        current_station = clean_name(data.get('current_station', 'Unknown'))
-        next_station = clean_name(data.get('next_station', 'Unknown'))
-
-        total_percent = 0
-        num_coaches = len(train_state_coaches)
-        for coach, cdata in train_state_coaches.items():
-            total_percent += cdata['crowd']
-
-        avg_percent = round(total_percent / num_coaches, 2) if num_coaches > 0 else 0
-
-        if avg_percent <= 30: crowd_category = "Low"
-        elif avg_percent <= 60: crowd_category = "Medium"
-        elif avg_percent <= 85: crowd_category = "High"
-        else: crowd_category = "Critical"
-
-        now = datetime.now()
-        row = [
-            now.strftime("%d-%m-%Y"), now.strftime("%A"), train_no, route_start, route_end, 
-            current_station, next_station, avg_percent, crowd_category
-        ]
-
-        csv_filename = 'historical_crowd_data.csv'
-        file_exists = os.path.isfile(csv_filename)
-        
-        with open(csv_filename, mode='a', newline='') as file:
+        row = [datetime.now().strftime("%d-%m-%Y"), datetime.now().strftime("%A"), data.get('train_no', 'Unknown'), clean_name(data.get('route_start', '')), clean_name(data.get('route_end', '')), clean_name(data.get('current_station', '')), clean_name(data.get('next_station', '')), avg_val, crowd_cat]
+        file_exists = os.path.isfile('historical_crowd_data.csv')
+        with open('historical_crowd_data.csv', mode='a', newline='') as file:
             writer = csv.writer(file)
-            if not file_exists:
-                writer.writerow(['Date', 'Day', 'Train No', 'Route Start', 'Route End', 'Current Station', 'Next Station', 'Average Crowd', 'Crowd Category'])
+            if not file_exists: writer.writerow(['Date', 'Day', 'Train No', 'Route Start', 'Route End', 'Current Station', 'Next Station', 'Average Crowd', 'Crowd Category'])
             writer.writerow(row)
-
         return jsonify({"status": "success"})
-    except Exception as e:
-        return jsonify({"status": "error"})
+    except: return jsonify({"status": "error"})
 
 @app.route('/api/update_crowd', methods=['POST'])
 def update_crowd():
     data = request.json
     coach_id = data.get('coach_id')
-    crowd_percent = data.get('crowd_percent')
-    
     if coach_id in train_state_coaches:
-        train_state_coaches[coach_id]['crowd'] = crowd_percent
+        train_state_coaches[coach_id]['crowd'] = data.get('crowd_percent')
         train_state_coaches[coach_id]['image'] = f"/static/captures/{coach_id}_live.jpg"
-
     return jsonify({"status": "success"})
 
 @app.route('/api/simulate_edge_processing', methods=['POST'])
 def simulate_edge_processing():
     try:
         data = request.json
-        image_data = data.get('image')
         coach_id = data.get('coach_id')
-
-        encoded_data = image_data.split(',')[1]
-        nparr = np.frombuffer(base64.b64decode(encoded_data), np.uint8)
-        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-
-        results = model.predict(img, classes=[0], conf=0.3, verbose=False)
-        count = len(results[0].boxes)
-        
-        annotated_frame = results[0].plot()
+        img = cv2.imdecode(np.frombuffer(base64.b64decode(data.get('image').split(',')[1]), np.uint8), cv2.IMREAD_COLOR)
+        results = model.predict(img, classes=[0], conf=0.25, verbose=False)
+        density, visual_img = calculate_and_visualize_density(img, results)
         filename = f"{coach_id}_processed.jpg"
-        save_path = os.path.join("static/captures", filename)
-        cv2.imwrite(save_path, annotated_frame)
-
-        capacity = 20
-        density = int((count / capacity) * 100)
-        if density > 100: density = 100
-
+        cv2.imwrite(os.path.join("static/captures", filename), visual_img)
         if coach_id in train_state_coaches:
             train_state_coaches[coach_id]['crowd'] = density
             train_state_coaches[coach_id]['image'] = f"/static/captures/{filename}"
-
-        return jsonify({"status": "success", "count": count, "density": density})
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)})
+        return jsonify({"status": "success", "count": len(results[0].boxes), "density": density})
+    except Exception as e: return jsonify({"status": "error", "message": str(e)})
 
 @app.route('/api/get_status', methods=['GET'])
-def get_status():
-    simple_coaches = {k: v['crowd'] for k, v in train_state_coaches.items()}
-    return jsonify({"coaches": simple_coaches})
+def get_status(): return jsonify({"coaches": {k: v['crowd'] for k, v in train_state_coaches.items()}})
 
 @app.route('/api/get_admin_data', methods=['GET'])
-def get_admin_data():
-    return jsonify({"coaches": train_state_coaches})
+def get_admin_data(): return jsonify({"coaches": train_state_coaches})
 
 if __name__ == '__main__':
-    if not os.path.exists('static/captures'):
-        os.makedirs('static/captures')
     app.run(debug=True, host='0.0.0.0', port=5000)

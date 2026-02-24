@@ -14,7 +14,8 @@
         
         .search-box { display: flex; gap: 5px; position: relative; }
         .search-box input { padding: 10px; border: 2px solid #ddd; border-radius: 6px; outline: none; text-align: center; font-weight: bold; width: 220px;}
-        .search-box button { padding: 10px 20px; background: var(--primary); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        .search-box button { padding: 10px 20px; background: var(--primary); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s;}
+        .search-box button:active { transform: scale(0.95); }
 
         .autocomplete-list { position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #ddd; border-top: none; z-index: 99; max-height: 200px; overflow-y: auto; border-radius: 0 0 6px 6px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: none; }
         .autocomplete-list div { padding: 10px; cursor: pointer; font-size: 14px; border-bottom: 1px solid #eee; }
@@ -31,28 +32,33 @@
 
         #dashboardContent { display: none; width: 100%; max-width: 1000px; flex-direction: column; align-items: center; }
 
-        .info-card { width: 100%; background: white; padding: 20px; border-radius: 12px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 30px; border-left: 5px solid #e63946; }
+        .info-card { width: 100%; background: white; padding: 20px; border-radius: 12px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 30px; border-left: 5px solid #e63946; box-shadow: 0 4px 15px rgba(0,0,0,0.05);}
         .info-label { font-size: 11px; color: #888; text-transform: uppercase; font-weight: bold; }
         .info-val { font-size: 16px; font-weight: bold; color: #333; }
         
+        /* Desktop Track Styles */
         .track-wrapper { width: 100%; position: relative; margin-bottom: 50px; padding-top: 40px; height: 100px; } 
         .rail { position: absolute; top: 60px; left: 0; width: 100%; height: 6px; background: #e0e0e0; border-top: 2px solid #999; border-bottom: 2px solid #999; border-radius: 4px; z-index: 0; }
-        .progress { position: absolute; top: 62px; left: 0; height: 4px; background: #28a745; width: 0%; transition: width 0.5s; z-index: 1; box-shadow: 0 0 8px #28a745; }
+        .progress { position: absolute; top: 62px; left: 0; height: 4px; background: #28a745; width: 0%; transition: width 0.5s, height 0.5s; z-index: 1; box-shadow: 0 0 8px #28a745; }
         
         .stations { display: flex; justify-content: space-between; position: relative; z-index: 2; }
         .station-node { display: flex; flex-direction: column; align-items: center; cursor: pointer; width: 100px; transition: 0.3s; }
         
+        .mob-dot { display: none; } /* Hidden on desktop */
+        .st-info-wrapper { text-align: center; }
+
         .st-img { width: 40px; height: 40px; background: white; border: 3px solid #ccc; border-radius: 50%; margin-bottom: 5px; transition: 0.3s; object-fit: cover; box-shadow: 0 4px 6px rgba(0,0,0,0.1); position: relative; z-index: 2; }
         .station-node.active .st-img { border-color: #28a745; transform: scale(1.2); box-shadow: 0 0 10px rgba(40, 167, 69, 0.5); }
-        .st-name { font-size: 11px; font-weight: bold; color: #888; text-align: center; }
-        .st-times { font-size: 9px; color: #555; text-align: center; margin-top: 2px; }
+        .st-name { font-size: 11px; font-weight: bold; color: #888; }
+        .st-times { font-size: 9px; color: #555; margin-top: 2px; }
         .st-reversal { color: #d63031; font-weight: 800; font-size: 10px; margin-top: 2px; display: none; }
         .station-node.reversal .st-reversal { display: block; }
 
+        /* Desktop Train Display Styles */
         .train-container { width: 100%; overflow-x: auto; padding-bottom: 20px; scroll-behavior: smooth; }
         .train-display { display: flex; align-items: flex-end; padding: 40px 20px; gap: 150px; min-width: max-content; }
         
-        .bogie { position: relative; width: 150px; margin-right: 5px; transition: all 0.3s ease; flex-shrink: 0; border-radius: 8px; }
+        .bogie { position: relative; width: 150px; margin-right: 5px; transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), margin 0.4s ease; flex-shrink: 0; border-radius: 8px; }
         .bogie img.main-img { height: 60px; width: auto; display: block; filter: drop-shadow(5px 5px 5px rgba(0,0,0,0.2)); }
         
         .bogie.loco-style { width: 160px; z-index: 5; margin-right: -27px; }
@@ -61,44 +67,123 @@
         .capacity-bar { position: absolute; top: -25px; left: 50%; transform: translateX(-50%); width: 60px; height: 8px; background: #ddd; border-radius: 4px; overflow: hidden; border: 1px solid #aaa; }
         .capacity-fill { height: 100%; width: 0%; background: #28a745; transition: width 0.5s; }
         .tint { position: absolute; top: 35%; left: 5%; width: 90%; height: 25%; mix-blend-mode: multiply; border-radius: 2px; opacity: 0.6; transition: 0.5s; pointer-events: none;}
-        .bogie-label { text-align: center; font-size: 10px; font-weight: bold; margin-top: 5px; color: #444; }
+        .bogie-label { text-align: center; font-size: 10px; font-weight: bold; margin-top: 5px; color: #444; transition: color 0.3s;}
 
         .amenity-overlay { position: absolute; top: 50%; transform: translateY(-50%); width: 20px; height: 20px; background: rgba(255,255,255,0.9); border-radius: 50%; padding: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.3); z-index: 10; pointer-events: none; }
         .icon-female { left: 30px; }
         .icon-disabled { right: 30px; }
 
-        .best-glow { box-shadow: 0 0 25px 8px rgba(40, 167, 69, 0.6); background-color: rgba(40,167,69,0.1); border-radius: 10px; transform: scale(1.05); z-index: 10; }
+        /* DESKTOP HIGHLIGHT FIX: Scale up instead of bounding box glow */
+        .best-glow { transform: scale(1.4); z-index: 15; margin: 0 35px; }
+        .best-glow .bogie-label { color: #28a745; font-size: 11px; }
+
+        .mobile-bogie-info { display: none; } /* Hidden on desktop */
 
         .alert-box { grid-column: span 4; background: #fff3cd; color: #856404; padding: 10px; border-radius: 5px; border: 1px solid #ffeeba; text-align: center; display: none; }
-        .btn-row { margin-top: 20px; display: flex; gap: 15px; flex-wrap: wrap; justify-content: center; }
-        .action-btn { padding: 12px 30px; border: none; border-radius: 30px; font-weight: bold; cursor: pointer; color: white; background: #333; transition: 0.2s; }
-        .action-btn:hover { transform: scale(1.05); }
+        .btn-row { margin-top: 20px; display: flex; gap: 15px; flex-wrap: wrap; justify-content: center; width: 100%;}
+        .action-btn { padding: 12px 30px; border: none; border-radius: 30px; font-weight: bold; cursor: pointer; color: white; background: #333; transition: 0.2s; box-shadow: 0 4px 6px rgba(0,0,0,0.1);}
+        .action-btn:active { transform: scale(0.95); }
         .rec-btn { background: #28a745; }
         .demo-btn { background: #17a2b8; }
         .voice-btn { background: #9b59b6; }
 
+
+        /* =========================================
+           MOBILE INTERFACE ("Where is my train" UI) 
+           ========================================= */
         @media (max-width: 768px) {
-            .search-row { flex-direction: column; align-items: stretch; }
-            .search-box { flex-direction: column; }
-            .search-box input { width: 100%; }
-            .info-card { grid-template-columns: 1fr 1fr; gap: 15px; }
-            .track-wrapper { height: 400px; display: flex; }
-            .rail { width: 6px; height: 100%; top: 0; left: 22px; }
-            .progress { width: 4px; height: 0%; top: 0; left: 23px; }
-            .stations { flex-direction: column; height: 100%; width: 100%; margin-left: 70px; }
-            .station-node { flex-direction: row; height: 100%; justify-content: flex-start; margin-left: -60px; }
-            .st-img { margin-bottom: 0; margin-right: 15px; }
-            .train-display { gap: 80px; padding: 20px 10px; }
-            .bogie { width: 80px; margin-right: 18px; }
-            .bogie img.main-img { height: 35px; }
-            .bogie.loco-style { width: 90px; margin-right: -5px; }
-            .bogie.loco-style img.main-img { height: 35px; }
-            .capacity-bar { width: 40px; height: 5px; top: -15px; }
-            .amenity-overlay { width: 14px; height: 14px; padding: 2px; }
-            .icon-female { left: 15px; }
-            .icon-disabled { right: 15px; }
-            .btn-row { flex-direction: column; width: 100%; gap: 10px; }
-            .action-btn { width: 100%; font-size: 14px; padding: 10px; }
+            body { padding: 10px; }
+            .search-container { padding: 15px; }
+            .search-row { flex-direction: column; align-items: stretch; gap: 10px;}
+            .search-box { flex-direction: column; width: 100%; max-width: 100% !important;}
+            .search-box input { width: 100%; box-sizing: border-box;}
+            .search-box button { width: 100%; padding: 12px;}
+            
+            .info-card { grid-template-columns: 1fr 1fr; gap: 15px; padding: 15px; margin-bottom: 20px;}
+
+            /* Stations Vertical Timeline */
+            .track-wrapper { height: auto; min-height: 250px; display: block; padding-top: 10px; margin-bottom: 20px; }
+            .rail { width: 4px; height: 100%; top: 0; left: 16px; background: #ddd; border: none; z-index: 1; }
+            .progress { width: 4px; height: 0%; top: 0; left: 16px; background: #28a745; z-index: 2; box-shadow: 0 0 6px #28a745;}
+            
+            .stations { flex-direction: column; gap: 25px; }
+            .station-node { flex-direction: row; align-items: center; justify-content: flex-start; width: 100%; }
+            
+            .st-img { display: none; } /* Hide big station images */
+            
+            /* Clean Tracking Dots */
+            .mob-dot { display: block; width: 16px; height: 16px; background: #fff; border: 4px solid #ccc; border-radius: 50%; z-index: 3; position: relative; left: 6px; transition: 0.3s;}
+            .station-node.active .mob-dot { border-color: #28a745; background: #28a745; box-shadow: 0 0 10px rgba(40,167,69,0.5); transform: scale(1.3); }
+            
+            .st-info-wrapper { margin-left: 30px; text-align: left; display: flex; flex-direction: column; }
+            .st-name { font-size: 14px; font-weight: bold; color: #222; }
+            .st-times { font-size: 12px; display: flex; gap: 10px; color: #666; margin-top: 4px; }
+            .st-reversal { text-align: left; font-size: 11px; margin-top: 4px;}
+
+            /* App-Style Realistic Train Layout */
+            .train-display { gap: 0px; padding: 20px 10px; align-items: center; }
+            
+            /* Hide all original image assets */
+            .main-img, .capacity-bar, .tint, .bogie-label { display: none !important; }
+            
+            /* Convert Bogie to a realistic Train Car Block */
+            .bogie { 
+                width: 68px; height: 48px; 
+                background: var(--mob-bg); 
+                border-radius: 4px; 
+                display: flex; flex-direction: column; justify-content: center; align-items: center;
+                margin-right: 0;
+                /* Gives a rounded roof highlight */
+                box-shadow: inset 0 5px 0 rgba(255,255,255,0.3), 0 3px 6px rgba(0,0,0,0.15); 
+                position: relative;
+                /* Base Chassis */
+                border-bottom: 3px solid #222; 
+            }
+            
+            /* Train Wheels */
+            .bogie::before {
+                content: ''; position: absolute; bottom: -7px; left: 12px; width: 12px; height: 12px; 
+                background: #333; border-radius: 50%; box-shadow: 32px 0 0 #333; z-index: 1; border: 1px solid #111;
+            }
+
+            /* Couplers (Connectors between coaches) */
+            .bogie::after {
+                content: ''; position: absolute; right: -6px; bottom: 6px; width: 6px; height: 4px; 
+                background: #444; border-radius: 1px; z-index: 0;
+            }
+            .bogie:last-child::after { display: none; }
+            
+            /* Engine styling - Sloped nose */
+            .bogie.loco-style { 
+                width: 78px; 
+                border-radius: 20px 4px 4px 4px; /* Aerodynamic front */
+            }
+            .bogie.loco-style::before { left: 18px; box-shadow: 34px 0 0 #333; }
+            
+            /* Inside the Block Text */
+            .mobile-bogie-info { display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; width: 100%; height: 100%; position: relative;}
+            
+            /* Engine specific cockpit window */
+            .mobile-engine-window { position: absolute; top: 4px; left: 8px; width: 14px; height: 10px; background: #87ceeb; border-radius: 4px 2px 2px 2px; border: 1px solid rgba(0,0,0,0.5); opacity: 0.9;}
+            
+            .m-id { font-weight: 900; font-size: 13px; letter-spacing: 0.5px; text-shadow: 1px 1px 2px rgba(0,0,0,0.6); z-index: 2;}
+            .m-crowd { font-size: 11px; font-weight: bold; background: rgba(0,0,0,0.5); padding: 2px 6px; border-radius: 8px; margin-top: 2px; z-index: 2;}
+
+            /* Amenity Icons */
+            .amenity-overlay { width: 12px; height: 12px; padding: 2px; top: -10px; border: 1px solid #ddd; box-shadow: none;}
+            .icon-female { left: auto; right: 5px; }
+            .icon-disabled { left: 5px; right: auto; }
+
+            /* MOBILE HIGHLIGHT FIX: Slight scale to pop out without breaking the train link */
+            .best-glow { 
+                transform: scale(1.15) translateY(-6px); 
+                margin: 0 8px; 
+                border: 2px solid #2ecc71; 
+                box-shadow: inset 0 5px 0 rgba(255,255,255,0.3), 0 10px 15px rgba(40,167,69,0.5);
+            }
+
+            .btn-row { flex-direction: column; gap: 10px; }
+            .action-btn { width: 100%; font-size: 15px; padding: 14px; }
         }
     </style>
 </head>
@@ -113,20 +198,19 @@
             
             <div class="search-box">
                 <input type="text" id="trainInput" placeholder="Enter Train No" oninput="filterTrains()" onfocus="filterTrains()">
-                <div id="trainList" class="autocomplete-list" style="width: 240px;"></div>
+                <div id="trainList" class="autocomplete-list" style="width: 100%;"></div>
                 <button onclick="loadTrainData()">Find Train</button>
             </div>
             
         </div>
-        <hr style="border: 0; height: 1px; background: #eee; width: 100%;">
-        <div class="search-row" style="justify-content: center;">
-            From
-            <div class="search-box" style="flex: 1; max-width: 300px;">
-                <input type="text" id="srcInput" placeholder="Source Station" oninput="filterStations('srcInput', 'srcList')" onfocus="filterStations('srcInput', 'srcList')">
+        <hr style="border: 0; height: 1px; background: #eee; width: 100%; margin: 5px 0;">
+        <div class="search-row">
+            <div class="search-box">
+                <input type="text" id="srcInput" placeholder="From Station" oninput="filterStations('srcInput', 'srcList')" onfocus="filterStations('srcInput', 'srcList')">
                 <div id="srcList" class="autocomplete-list"></div>
-            </div> To
-            <div class="search-box" style="flex: 1; max-width: 300px;">
-                <input type="text" id="destInput" placeholder="Destination" oninput="filterStations('destInput', 'destList')" onfocus="filterStations('destInput', 'destList')">
+            </div>
+            <div class="search-box">
+                <input type="text" id="destInput" placeholder="To Station" oninput="filterStations('destInput', 'destList')" onfocus="filterStations('destInput', 'destList')">
                 <div id="destList" class="autocomplete-list"></div>
             </div>
             <div class="search-box">
@@ -167,9 +251,9 @@
         </div>
 
         <div class="btn-row">
-            <button class="action-btn demo-btn" onclick="nextStation()">⏩ Next Station</button>
+            <button class="action-btn demo-btn" onclick="nextStation()">Next Station</button>
             <button class="action-btn rec-btn" onclick="findBestCoach()">Find Empty Coach</button>
-            <button class="action-btn voice-btn" onclick="speakStatus()">🔊 Voice Assistant</button>
+            <button class="action-btn voice-btn" onclick="speakStatus()">Voice Assistant</button>
         </div>
     </div>
 
@@ -180,7 +264,7 @@
         let allStations = [];
         let allTrains = [];
 
-        // Pre-load voices to avoid delay on first click
+        // Pre-load voices
         window.speechSynthesis.onvoiceschanged = () => { window.speechSynthesis.getVoices(); };
 
         async function fetchInitialData() {
@@ -200,10 +284,7 @@
             const val = input.value.toLowerCase();
             
             list.innerHTML = '';
-            if (!val) {
-                list.style.display = 'none';
-                return;
-            }
+            if (!val) { list.style.display = 'none'; return; }
 
             const matches = allTrains.filter(t => t.number.includes(val) || t.name.toLowerCase().includes(val));
             if (matches.length > 0) {
@@ -217,9 +298,7 @@
                     };
                     list.appendChild(div);
                 });
-            } else {
-                list.style.display = 'none';
-            }
+            } else { list.style.display = 'none'; }
         }
 
         function filterStations(inputId, listId) {
@@ -228,10 +307,7 @@
             const val = input.value.toLowerCase();
             
             list.innerHTML = '';
-            if (!val) {
-                list.style.display = 'none';
-                return;
-            }
+            if (!val) { list.style.display = 'none'; return; }
 
             const matches = allStations.filter(s => s.toLowerCase().includes(val));
             if (matches.length > 0) {
@@ -245,9 +321,7 @@
                     };
                     list.appendChild(div);
                 });
-            } else {
-                list.style.display = 'none';
-            }
+            } else { list.style.display = 'none'; }
         }
 
         document.addEventListener('click', function(e) {
@@ -279,7 +353,7 @@
                 trains.forEach(t => {
                     let btn = document.createElement('button');
                     btn.className = 'train-result-btn';
-                    btn.innerText = `🚆 ${t.number} - ${t.name} (${t.type}) | Departs: ${t.departure}`;
+                    btn.innerText = `${t.number} - ${t.name} (${t.type}) | Departs: ${t.departure}`;
                     btn.onclick = () => {
                         document.getElementById('trainInput').value = t.number;
                         loadTrainData();
@@ -315,9 +389,7 @@
                 if (train.reversal_at) {
                     document.getElementById('revStationName').innerText = train.reversal_at;
                     alertBox.style.display = "block";
-                } else {
-                    alertBox.style.display = "none";
-                }
+                } else { alertBox.style.display = "none"; }
 
                 renderStations(train.stations[0].name);
                 
@@ -330,7 +402,6 @@
 
         async function fetchStatus() {
             if(!activeTrain) return;
-
             try {
                 const response = await fetch('/api/get_status');
                 const data = await response.json();
@@ -340,9 +411,7 @@
                 let isReversed = false;
                 if (activeTrain.reversal_at) {
                     let revIndex = activeTrain.stations.findIndex(s => s.name === activeTrain.reversal_at);
-                    if (currentStationIndex >= revIndex && revIndex !== -1) {
-                        isReversed = true;
-                    }
+                    if (currentStationIndex >= revIndex && revIndex !== -1) isReversed = true;
                 }
                 
                 renderStations(safeStation.name);
@@ -385,10 +454,11 @@
                 node.className = `station-node ${isActive ? 'active' : ''}`;
                 
                 node.innerHTML = `
+                    <div class="mob-dot"></div>
                     <img src="${imgUrl}" class="st-img">
-                    <div>
+                    <div class="st-info-wrapper">
                         <div class="st-name">${st.name}</div>
-                        <div class="st-times">Arr: ${st.arr} <br> Dep: ${st.dep}</div>
+                        <div class="st-times"><span>Arr: ${st.arr}</span> <span>Dep: ${st.dep}</span></div>
                         ${isReversal ? '<div class="st-reversal">REVERSAL</div>' : ''}
                     </div>
                 `;
@@ -417,9 +487,13 @@
                 const isGeneral = (coach.type === "GEN" || coach.type === "SLR");
                 let crowd = crowdData[coach.id] || 0;
                 
-                let color = '#28a745'; 
-                if (crowd > 50) color = '#ffc107';
-                if (crowd > 85) color = '#dc3545';
+                // Color mapping for both desktop tint and mobile blocks
+                let color = '#28a745'; // Green
+                if (crowd > 50) color = '#f1c40f'; // Yellow
+                if (crowd > 85) color = '#e74c3c'; // Red
+                
+                let mobBgColor = coach.type === "LOCO" ? "#2c3e50" : (!isGeneral ? "#95a5a6" : color);
+                bogie.style.setProperty('--mob-bg', mobBgColor);
                 
                 let imgUrl = coach.type === "LOCO" ? "/static/engine.png" : "/static/coach.png";
                 let imgStyle = (!isGeneral && coach.type !== "LOCO") ? "filter: grayscale(100%); opacity: 0.7;" : "";
@@ -432,8 +506,18 @@
                     flagsHtml += `<img src="/static/disabled.png" class="amenity-overlay icon-disabled">`;
                 }
 
+                // Shorten GEN to GS for mobile view compactness
+                let mobId = coach.type === 'LOCO' ? 'ENG' : coach.id.replace('GEN-', 'GS-');
+
                 let html = `
                     ${flagsHtml}
+                    
+                    <div class="mobile-bogie-info">
+                        ${coach.type === 'LOCO' ? '<div class="mobile-engine-window"></div>' : ''}
+                        <div class="m-id">${mobId}</div>
+                        ${isGeneral ? `<div class="m-crowd">${crowd}%</div>` : ''}
+                    </div>
+
                     ${isGeneral ? `<div class="capacity-bar"><div class="capacity-fill" style="width:${crowd}%; background:${color}"></div></div>` : ''}
                     <div class="tint" style="background:${color}; display:${isGeneral ? 'block' : 'none'}"></div>
                     <img src="${imgUrl}" class="main-img" style="${imgStyle}">
@@ -479,14 +563,12 @@
         function speakStatus() {
             if (!activeTrain) return;
             
-            // 1. Get Next Station Name (Cleaned up for speech)
             let nextStation = "Destination reached";
             if (currentStationIndex < activeTrain.stations.length - 1) {
                 // Remove the bracketed code e.g., "Vijayawada (BZA)" -> "Vijayawada"
                 nextStation = activeTrain.stations[currentStationIndex + 1].name.split(' (')[0]; 
             }
 
-            // 2. Find the best coach
             let minCrowd = Infinity;
             let bestCoachId = null;
             let bestIndex = -1;
@@ -497,7 +579,7 @@
                     let c = parseInt(b.dataset.crowd) || 0;
                     if (c < minCrowd) {
                         minCrowd = c;
-                        bestCoachId = b.dataset.coachId; // e.g., GEN-1
+                        bestCoachId = b.dataset.coachId; 
                         bestIndex = index;
                     }
                 }
@@ -508,19 +590,15 @@
                 return;
             }
 
-            // Clean coach ID for better pronunciation (e.g. "GEN-1" -> "General 1")
             let spokenCoachId = bestCoachId.replace("GEN-", "General ").replace("SLR-", "S L R ");
 
-            // 3. Determine Front or Back
             const totalCoaches = bogies.length;
             let posEng = bestIndex < (totalCoaches / 2) ? "front" : "back";
             let posTel = bestIndex < (totalCoaches / 2) ? "ముందు" : "వెనుక";
 
-            // 4. Prepare Speech Text
             let engText = `Next station is ${nextStation}. The best free coach is ${spokenCoachId}, located at the ${posEng} of the train.`;
             let telText = `తదుపరి స్టేషన్ ${nextStation}. ఉత్తమ ఖాళీ కోచ్ ${spokenCoachId}, ఇది రైలు ${posTel} భాగంలో ఉంది.`;
 
-            // 5. Trigger Speech Sequentially
             triggerSpeech(engText, 'en-IN', () => {
                 setTimeout(() => triggerSpeech(telText, 'te-IN'), 800);
             });
@@ -528,29 +606,24 @@
 
         function triggerSpeech(text, targetLang, callback) {
             const utterance = new SpeechSynthesisUtterance(text);
-            utterance.rate = 0.9; // Slightly slower for clarity
+            utterance.rate = 0.9; 
             utterance.pitch = 1.0;
             
             const voices = window.speechSynthesis.getVoices();
             let selectedVoice = null;
 
             if (targetLang === 'en-IN') {
-                // Hunt for Indian English voices specifically
                 selectedVoice = voices.find(v => v.lang === 'en-IN' || v.name.toLowerCase().includes('india') || v.name.toLowerCase().includes('neerja'));
-                // Fallback to standard English if Indian is missing
                 if (!selectedVoice) selectedVoice = voices.find(v => v.lang.startsWith('en'));
             } 
             else if (targetLang === 'te-IN') {
-                // Hunt for Telugu voices
                 selectedVoice = voices.find(v => v.lang === 'te-IN' || v.lang === 'te' || v.name.toLowerCase().includes('telugu'));
             }
 
             if (selectedVoice) {
                 utterance.voice = selectedVoice;
-                // Force the language tag to match the voice
                 utterance.lang = selectedVoice.lang; 
             } else {
-                // Generic fallback if the OS doesn't have the specific voice installed
                 utterance.lang = targetLang;
             }
 
