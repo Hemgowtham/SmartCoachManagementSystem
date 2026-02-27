@@ -1,3 +1,11 @@
+"""
+Edge Node AI Processor
+----------------------
+This script simulates the onboard CCTV processing unit. 
+It remains idle until triggered by a station departure event from the central server.
+It utilizes YOLOv8 to perform Perspective Footprint Mapping for occlusion-resistant density estimation.
+"""
+
 from ultralytics import YOLO
 import cv2
 import requests
@@ -5,101 +13,119 @@ import os
 import time
 import numpy as np
 
-SERVER_URL = "http://127.0.0.1:5000/api/update_crowd"
-
-COACH_IMAGES = {
-    "GEN-1": "test_images/GEN-1.jpg",
-    "GEN-2": "test_images/GEN-2.jpg",
-    "GEN-3": "test_images/GEN-3.jpg",
-    "GEN-4": "test_images/GEN-4.jpg",
-    "SLR-1": "test_images/SLR-1.jpg",
-    "SLR-2": "test_images/SLR-2.jpg",
-    "SLR-M": "test_images/SLR-M.jpg"
-}
+SERVER_URL = "http://127.0.0.1:5000"
 SAVE_DIR = "static/captures"
+COACHES = ["GEN-1", "GEN-2", "GEN-3", "GEN-4", "SLR-1", "SLR-2", "SLR-M"]
 
-def calculate_and_visualize_density(img, results):
+def calculate_advanced_density(img, results):
+    """
+    Calculates spatial density using Perspective Footprint Mapping.
+    Prioritizes the feet (base) of bounding boxes and scales their weight based on depth (occlusion).
+    """
     h, w = img.shape[:2]
     boxes = results[0].boxes.xyxy.cpu().numpy()
-    count = len(boxes)
-
-    if count == 0:
-        # If empty, just return the clear image
+    
+    # Return 0 if coach is completely empty
+    if len(boxes) == 0: 
         return 0, img.copy()
 
-    grid_size = int(w / 35) 
     overlay = np.zeros_like(img)
+    total_weighted_mass = 0
     
-    total_valid_cells = 0
-    occupied_cells = 0
+    for box in boxes:
+        x1, y1, x2, y2 = map(int, box[:4])
+        
+        # Extract the center coordinate of the passenger's feet
+        feet_x = int((x1 + x2) / 2)
+        feet_y = int(y2)
+        
+        # Occlusion Multiplier: Passengers further from the camera (lower Y value) 
+        # have a higher statistical probability of obscuring passengers behind them.
+        depth_ratio = 1.0 - (feet_y / h) 
+        occlusion_weight = 1.0 + (depth_ratio * 2.0) 
+        total_weighted_mass += occlusion_weight
+        
+        # Render the spatial footprint footprint based on perspective depth
+        radius = int(w * 0.05 * (feet_y / h)) 
+        if radius > 0:
+            cv2.circle(overlay, (feet_x, feet_y), radius, (0, 0, 255), -1)
+            cv2.rectangle(overlay, (x1, int(y1 + (y2-y1)*0.2)), (x2, y2), (0, 0, 255), 2)
 
-    for y in range(0, h, grid_size):
-        for x in range(0, w, grid_size):
-            total_valid_cells += 1
-            
-            cell_x1, cell_y1 = x, y
-            cell_x2, cell_y2 = min(x + grid_size, w), min(y + grid_size, h)
-            
-            is_occupied = False
-            
-            for box in boxes:
-                bx1, by1, bx2, by2 = map(int, box[:4])
-                
-                bw = bx2 - bx1
-                bh = by2 - by1
-                core_x1 = bx1 + int(bw * 0.15)
-                core_x2 = bx2 - int(bw * 0.15)
-                core_y1 = by1 + int(bh * 0.15)
-                core_y2 = by2
-                
-                if (cell_x1 < core_x2 and cell_x2 > core_x1 and
-                    cell_y1 < core_y2 and cell_y2 > core_y1):
-                    is_occupied = True
-                    break
-                    
-            if is_occupied:
-                cv2.rectangle(overlay, (cell_x1, cell_y1), (cell_x2, cell_y2), (0, 0, 255), -1) # Red only
-                occupied_cells += 1
-                
-    MAX_GRID_FILL = 0.45
+    # Define the maximum mathematical threshold for crush load capacity
+    MAX_CAPACITY = 35.0 
+    density = min(int((total_weighted_mass / MAX_CAPACITY) * 100), 100)
+
+    # Render final analytical image
+    visual_img = cv2.addWeighted(img, 0.7, overlay, 0.6, 0)
+    cv2.putText(visual_img, f"Mass Index: {round(total_weighted_mass,1)} | Density: {density}%", 
+                (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 255), 2)
     
-    if total_valid_cells > 0:
-        raw_fill = occupied_cells / total_valid_cells
-        density = int((raw_fill / MAX_GRID_FILL) * 100)
-    else:
-        density = 0
-        
-    density = min(density, 100)
-    
-    # Visual Blend - Only applies the red squares, leaving the rest of the image natural
-    visual_img = cv2.addWeighted(img, 0.6, overlay, 0.4, 0)
-        
     return density, visual_img
 
 def edge_process():
-    print("Starting Edge Node (Clean Heatmap Analytics)...")
-    model = YOLO("yolov8n.pt") 
-    if not os.path.exists(SAVE_DIR): os.makedirs(SAVE_DIR)
+    """
+    Main polling loop. Listens for server state changes to trigger image processing.
+    """
+    print("[SYSTEM] Initializing Edge AI Node...")
+    model = YOLO("yolov8s.pt") 
+    
+    if not os.path.exists(SAVE_DIR): 
+        os.makedirs(SAVE_DIR)
+
+    last_processed_state = None
 
     while True:
-        print("\n[EDGE] Scanning Coach Cameras...")
-        for coach_id, img_path in COACH_IMAGES.items():
-            if not os.path.exists(img_path):
+        try:
+            res = requests.get(f"{SERVER_URL}/api/get_live_status")
+            state = res.json()
+            
+            # Remain idle if no active train is assigned
+            if not state.get('active_train'):
+                time.sleep(2)
                 continue
 
-            img = cv2.imread(img_path)
-            results = model.predict(img, classes=[0], conf=0.25, verbose=False)
-            density, visual_img = calculate_and_visualize_density(img, results)
-            
-            save_path = os.path.join(SAVE_DIR, f"{coach_id}_live.jpg")
-            cv2.imwrite(save_path, visual_img)
+            # Ensure processing only occurs once per station departure event
+            current_state_key = f"{state['active_train']}_{state['station_index']}"
+            if current_state_key == last_processed_state:
+                time.sleep(2)
+                continue
 
-            try:
-                requests.post(SERVER_URL, json={"coach_id": coach_id, "crowd_percent": density})
-                print(f"{coach_id} Analyzed -> Space Filled: {density}%")
-            except:
-                pass
-        time.sleep(4)
+            station_idx = state['station_index']
+            print(f"[EVENT] Train departed. Initiating analysis for Station Index: {station_idx}")
+            
+            # Fetch corresponding static image set for demonstration purposes
+            folder_path = f"test_images/stop_{station_idx}"
+            if not os.path.exists(folder_path):
+                folder_path = "test_images"
+
+            for coach in COACHES:
+                img_path = None
+                for ext in ['.jpg', '.jpeg', '.png']:
+                    temp_path = os.path.join(folder_path, f"{coach}{ext}")
+                    if os.path.exists(temp_path):
+                        img_path = temp_path
+                        break
+                
+                if not img_path: 
+                    continue
+
+                img = cv2.imread(img_path)
+                results = model.predict(img, classes=[0], conf=0.20, verbose=False)
+                density, visual_img = calculate_advanced_density(img, results)
+                
+                save_path = os.path.join(SAVE_DIR, f"{coach}_live.jpg")
+                cv2.imwrite(save_path, visual_img)
+                
+                # Transmit raw YOLO density to central server
+                requests.post(f"{SERVER_URL}/api/update_crowd", json={"coach_id": coach, "crowd_percent": density})
+                
+            last_processed_state = current_state_key
+            print("[SYSTEM] Edge analysis complete. Entering standby mode.")
+                
+        except Exception as e: 
+            pass 
+            
+        time.sleep(2)
 
 if __name__ == "__main__":
     edge_process()

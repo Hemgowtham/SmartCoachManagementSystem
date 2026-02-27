@@ -5,375 +5,228 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>RailVision: Admin Console</title>
     <style>
-        /* --- CLEAN DARK MODE THEME --- */
-        body { font-family: 'Segoe UI', sans-serif; background-color: #121212; color: #e0e0e0; margin: 0; padding: 20px; }
+        :root { --primary: #0056b3; --bg: #f4f7f6; --text-main: #333; --border: #ccc; }
+        body { font-family: Arial, sans-serif; background-color: var(--bg); color: var(--text-main); margin: 0; padding: 0; }
         
-        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #333; padding-bottom: 15px; margin-bottom: 30px; }
-        .header h1 { color: #fff; margin: 0; font-size: 24px; font-weight: 600; letter-spacing: 1px; }
-        .header .status { color: #4ade80; font-size: 14px; font-weight: bold; padding: 5px 10px; background: rgba(74, 222, 128, 0.1); border-radius: 4px; }
+        /* Unified Header */
+        .top-navbar { background-color: #fff; border-bottom: 2px solid var(--primary); padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 20px;}
+        .top-navbar h1 { margin: 0; font-size: 22px; color: var(--primary); text-transform: uppercase; letter-spacing: 1px;}
+        .system-status { font-size: 13px; font-weight: bold; padding: 5px 10px; background: #e8f5e9; color: #155724; border: 1px solid #c3e6cb; border-radius: 4px; }
         
-        .main-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; margin-bottom: 30px; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 0 20px; }
+        .grid-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
         
-        .panel { background-color: #1e1e1e; border-radius: 8px; padding: 25px; border: 1px solid #2d2d2d; box-shadow: 0 4px 6px rgba(0,0,0,0.2); }
-        .panel-title { font-size: 16px; color: #a1a1aa; margin-top: 0; margin-bottom: 20px; text-transform: uppercase; letter-spacing: 1px; font-weight: 600; }
+        /* Standardized Panels */
+        .panel { background-color: #fff; border: 1px solid var(--border); border-radius: 4px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        .panel-header { font-size: 16px; color: var(--primary); margin-top: 0; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px; font-weight: bold; }
         
-        /* Inputs & Buttons */
-        .input-group { display: flex; flex-direction: column; gap: 8px; margin-bottom: 15px; position: relative; }
-        .input-group label { font-size: 12px; color: #888; }
-        .row-inputs { display: flex; gap: 15px; }
-        .row-inputs > div { flex: 1; display: flex; flex-direction: column; gap: 8px; }
-
-        input, select { background-color: #2d2d2d; color: #fff; border: 1px solid #404040; padding: 12px; border-radius: 6px; font-size: 14px; outline: none; transition: border 0.3s; }
-        input:focus, select:focus { border-color: #3b82f6; }
+        .form-row { display: flex; gap: 10px; margin-bottom: 15px; align-items: center; position: relative;}
+        input[type="text"] { flex: 1; padding: 10px; border: 1px solid var(--border); border-radius: 4px; font-size: 14px; }
         
-        .btn { padding: 12px 20px; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; transition: 0.2s; text-align: center; }
-        .btn-primary { background-color: #3b82f6; color: white; }
-        .btn-primary:hover { background-color: #2563eb; }
-        .btn-success { background-color: #10b981; color: white; margin-top: 10px; }
-        .btn-success:hover { background-color: #059669; }
-        .btn-warning { background-color: #f59e0b; color: white; }
-
-        /* Autocomplete */
-        .autocomplete-list { position: absolute; top: 100%; left: 0; right: 0; background: #2d2d2d; border: 1px solid #404040; z-index: 99; max-height: 200px; overflow-y: auto; border-radius: 0 0 6px 6px; display: none; margin-top: 2px; box-shadow: 0 10px 15px rgba(0,0,0,0.5); }
-        .autocomplete-list div { padding: 10px 12px; cursor: pointer; font-size: 14px; border-bottom: 1px solid #333; color: #e0e0e0; }
-        .autocomplete-list div:hover { background-color: #3b82f6; color: white; }
-
-        /* Image Detection Area */
-        .detection-modes { display: flex; gap: 10px; margin-bottom: 15px; }
-        .mode-btn { flex: 1; padding: 10px; background: #2d2d2d; color: #888; border: 1px solid #404040; border-radius: 6px; cursor: pointer; font-weight: 600; }
-        .mode-btn.active { background: #3b82f6; color: white; border-color: #3b82f6; }
+        .btn { padding: 10px 15px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; color: white; font-size: 14px; transition: background 0.2s;}
+        .btn-primary { background: var(--primary); } .btn-primary:hover { background: #004494; }
+        .btn-success { background: #28a745; } .btn-success:hover { background: #218838; }
+        .btn-full { width: 100%; display: block; margin-top: 10px; }
         
-        .media-box { width: 100%; height: 220px; background: #0a0a0a; border: 2px dashed #404040; border-radius: 8px; display: flex; justify-content: center; align-items: center; overflow: hidden; margin-bottom: 15px; position: relative; }
-        video, #previewImg { width: 100%; height: 100%; object-fit: contain; }
-        #fileInput { display: none; }
-        .upload-overlay { position: absolute; cursor: pointer; background: rgba(0,0,0,0.6); padding: 10px 20px; border-radius: 6px; font-weight: bold; }
-        .upload-overlay:hover { background: rgba(59, 130, 246, 0.8); }
+        /* Auto-complete dropdown */
+        .autocomplete-list { position: absolute; top: 100%; left: 0; right: 130px; background: #fff; border: 1px solid var(--border); z-index: 99; max-height: 150px; overflow-y: auto; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: none; }
+        .autocomplete-list div { padding: 10px; cursor: pointer; border-bottom: 1px solid #eee; font-size: 14px;}
+        .autocomplete-list div:hover { background-color: #f8f9fa; }
 
-        /* Live Camera Grid */
-        .grid-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; }
-        .coach-card { background: #1e1e1e; border-radius: 8px; overflow: hidden; border: 1px solid #2d2d2d; }
-        .cam-feed { width: 100%; height: 130px; object-fit: cover; background: #0a0a0a; border-bottom: 1px solid #333;}
-        .card-body { padding: 12px; display: flex; justify-content: space-between; align-items: center; }
-        .status-badge { padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; color: black; }
-        .safe { background: #4ade80; } .mod { background: #facc15; } .danger { background: #f87171; color: white; }
+        .status-text { margin-bottom: 15px; color: #555; font-size: 15px; background: #f8f9fa; padding: 10px; border: 1px solid #eee; border-radius: 4px;}
+        
+        /* Camera Grid */
+        .cam-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 15px; }
+        .cam-card { border: 1px solid var(--border); border-radius: 4px; background: #fff; overflow: hidden; }
+        .cam-feed { width: 100%; height: 140px; object-fit: cover; border-bottom: 1px solid var(--border); background: #eee; display: block;}
+        .cam-info { padding: 10px; display: flex; justify-content: space-between; align-items: center; background: #fafafa;}
+        .cam-id { font-weight: bold; font-size: 14px; color: #333;}
+        .cam-stats { text-align: right; }
+        .badge { padding: 3px 6px; border-radius: 3px; font-size: 11px; font-weight: bold; color: white; display: inline-block; margin-bottom: 2px;}
+        .exp-text { font-size: 11px; color: #666; font-weight: bold;}
 
-        #logMsg, #statusMsg { font-size: 13px; margin-top: 10px; text-align: center; height: 18px; color: #a1a1aa; }
-
-        @media (max-width: 768px) {
-            .main-grid { grid-template-columns: 1fr; }
-            .row-inputs { flex-direction: column; }
-        }
+        /* Demo Tool */
+        .demo-layout { display: flex; gap: 20px; align-items: stretch; }
+        .demo-controls { flex: 1; background: #f8f9fa; padding: 15px; border: 1px dashed #ccc; border-radius: 4px; text-align: center;}
+        .demo-output { flex: 2; text-align: center; border: 1px solid #eee; padding: 10px; background: #fafafa;}
+        .demo-output img { max-width: 100%; max-height: 350px; border: 1px solid #ccc; display: none;}
     </style>
 </head>
 <body>
-
-    <div class="header">
-        <h1>RailVision Console</h1>
-        <div class="status">● SYSTEM ONLINE</div>
+    <div class="top-navbar">
+        <h1>RailVision Admin Console</h1>
+        <div class="system-status">● SYSTEM ONLINE</div>
     </div>
 
-    <div class="main-grid">
-        
-        <div class="panel">
-            <h2 class="panel-title">Data Logger (Machine Learning)</h2>
-            
-            <div class="input-group">
-                <label>Search Train</label>
-                <input type="text" id="adminTrainNo" placeholder="Enter Train Number" autocomplete="off" oninput="filterAdminTrains()" onfocus="filterAdminTrains()">
-                <div id="adminTrainList" class="autocomplete-list"></div>
-            </div>
-            
-            <div class="row-inputs">
-                <div class="input-group">
-                    <label>Current Station</label>
-                    <select id="currStation"><option value="">--</option></select>
+    <div class="container">
+        <div class="grid-layout">
+            <div class="panel">
+                <h2 class="panel-header">Train Journey Controller</h2>
+                <div class="form-row">
+                    <input type="text" id="trainNo" placeholder="Search Train Identifier" oninput="filterTrains()" onfocus="filterTrains()">
+                    <div id="trainList" class="autocomplete-list"></div>
+                    <button class="btn btn-primary" onclick="loadTrain()">Initialize Route</button>
                 </div>
-                <div class="input-group">
-                    <label>Next Station</label>
-                    <select id="nextStation"><option value="">--</option></select>
+                <div class="status-text">
+                    Current Position: <strong id="currSt" style="color:var(--primary);">Standby</strong><br>
+                    Next Stop: <strong id="nextSt">--</strong>
                 </div>
+                <button class="btn btn-success btn-full" onclick="departStation()">Execute Departure & Trigger Cameras</button>
+                <div id="sysMsg" style="color: #28a745; font-size: 12px; margin-top: 10px; text-align: center; height: 15px; font-weight:bold;"></div>
             </div>
-
-            <button class="btn btn-success" style="width: 100%;" onclick="logSegmentData()">💾 Log Segment to CSV</button>
-            <div id="logMsg">Awaiting action...</div>
         </div>
 
-        <div class="panel">
-            <h2 class="panel-title">YOLOv8 Edge Detection Simulator</h2>
-            
-            <div class="detection-modes">
-                <button class="mode-btn" onclick="setMode('cam')">📷 Live Camera</button>
-                <button class="mode-btn active" onclick="setMode('file')">🖼️ Upload Image</button>
-            </div>
-
-            <div id="camView" style="display:none;">
-                <div class="media-box">
-                    <video id="videoElement" autoplay playsinline></video>
+        <div class="panel" style="margin-bottom: 20px;">
+            <h2 class="panel-header">Live Edge Node Telemetry</h2>
+            <div class="cam-grid" id="cameraGrid">
                 </div>
-                <button class="btn btn-primary" style="width: 100%; margin-bottom:15px;" onclick="startCamera()">Start Camera</button>
-            </div>
-
-            <div id="fileView">
-                <div class="media-box" onclick="document.getElementById('fileInput').click()">
-                    <img id="previewImg" style="display:none;">
-                    <div class="upload-overlay" id="uploadText">Click to Select Crowd Image</div>
-                </div>
-                <input type="file" id="fileInput" accept="image/*" onchange="previewFile()">
-            </div>
-
-            <div class="row-inputs">
-                <div class="input-group" style="flex: 1;">
-                    <select id="targetCoach"><option value="">Loading Coaches...</option></select>
-                </div>
-                <button class="btn btn-warning" style="flex: 1;" onclick="processData()">Run Analysis 🚀</button>
-            </div>
-            <div id="statusMsg">Ready for detection.</div>
         </div>
 
+        <div class="panel" style="margin-bottom: 40px;">
+            <h2 class="panel-header">Methodology Validation Tool</h2>
+            <p style="font-size: 13px; color: #666; margin-top: -5px;">Upload a raw image to test the Perspective-Footprint Mapping algorithm locally.</p>
+            
+            <div class="demo-layout">
+                <div class="demo-controls">
+                    <input type="file" id="demoFile" accept="image/*" style="display: none;" onchange="loadDemoPreview(event)">
+                    <button class="btn btn-primary" onclick="document.getElementById('demoFile').click()">Select Image</button>
+                    <div id="demoFileName" style="margin-top: 10px; font-size: 12px; color: #666;">No file selected</div>
+                    <button class="btn btn-success btn-full" style="margin-top: 15px;" onclick="processDemoImage()">Execute Analysis</button>
+                </div>
+                <div class="demo-output">
+                    <h3 id="demoResultText" style="margin: 0 0 10px 0; color: #28a745; display: none; font-size: 15px;">Calculated Density: <span id="demoDensity"></span>%</h3>
+                    <img id="demoResultImg">
+                </div>
+            </div>
+        </div>
     </div>
-
-    <div class="panel" style="margin-bottom: 40px;">
-        <h2 class="panel-title">Live Coach Surveillance</h2>
-        <div class="grid-container" id="cameraGrid"></div>
-    </div>
-
-    <canvas id="canvas" style="display:none;"></canvas>
 
     <script>
-        // --- AUTOCOMPLETE & ML LOGGER LOGIC ---
+        // ... (Keep existing JavaScript exactly the same as previous admin.html) ...
         let allTrains = [];
-        let adminActiveTrain = null;
+        let currentStationIndex = -1;
 
-        async function fetchTrainList() {
-            try {
-                let resTr = await fetch('/api/train_list');
-                allTrains = await resTr.json();
-            } catch(err) { console.log(err); }
-        }
-        fetchTrainList();
+        fetch('/api/train_list').then(r => r.json()).then(d => allTrains = d);
 
-        function filterAdminTrains() {
-            const input = document.getElementById('adminTrainNo');
-            const list = document.getElementById('adminTrainList');
+        function filterTrains() {
+            const input = document.getElementById('trainNo');
+            const list = document.getElementById('trainList');
             const val = input.value.toLowerCase();
-            
             list.innerHTML = '';
             if (!val) { list.style.display = 'none'; return; }
 
             const matches = allTrains.filter(t => t.number.includes(val) || t.name.toLowerCase().includes(val));
             if (matches.length > 0) {
                 list.style.display = 'block';
-                matches.forEach(match => {
-                    let div = document.createElement('div');
-                    div.innerText = `${match.number} - ${match.name}`;
-                    div.onmousedown = function() {
-                        input.value = match.number;
-                        list.style.display = 'none';
-                        loadAdminTrain(); // Auto-load when selected
-                    };
+                matches.forEach(m => {
+                    let div = document.createElement('div'); div.innerText = `${m.number} - ${m.name}`;
+                    div.onmousedown = () => { input.value = m.number; list.style.display = 'none'; };
                     list.appendChild(div);
                 });
-            } else {
-                list.style.display = 'none';
-            }
+            } else { list.style.display = 'none'; }
         }
 
-        document.addEventListener('click', function(e) {
-            if(e.target.id !== 'adminTrainNo') document.getElementById('adminTrainList').style.display = 'none';
-        });
-
-        async function loadAdminTrain() {
-            const tNo = document.getElementById('adminTrainNo').value;
-            try {
-                const res = await fetch('/api/get_train/' + tNo);
-                if (!res.ok) {
-                    document.getElementById('logMsg').innerText = "Train not found in DB.";
-                    document.getElementById('logMsg').style.color = "#f87171";
-                    return;
-                }
-                
-                adminActiveTrain = await res.json();
-                const stSelect1 = document.getElementById('currStation');
-                const stSelect2 = document.getElementById('nextStation');
-                stSelect1.innerHTML = ''; stSelect2.innerHTML = '';
-                
-                adminActiveTrain.stations.forEach(s => {
-                    stSelect1.innerHTML += `<option value="${s.name}">${s.name}</option>`;
-                    stSelect2.innerHTML += `<option value="${s.name}">${s.name}</option>`;
-                });
-                
-                if (adminActiveTrain.stations.length > 1) stSelect2.selectedIndex = 1;
-                
-                document.getElementById('logMsg').innerText = `Loaded Route: ${adminActiveTrain.name}`;
-                document.getElementById('logMsg').style.color = "#4ade80";
-            } catch(err) { console.error(err); }
+        async function loadTrain() {
+            const tNo = document.getElementById('trainNo').value;
+            await fetch('/api/admin/set_train', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({train_no: tNo}) });
+            document.getElementById('sysMsg').innerText = "System synchronized successfully.";
+            currentStationIndex = -1; 
+            fetchAdminData();
         }
 
-        async function logSegmentData() {
-            const logMsg = document.getElementById('logMsg');
-            if (!adminActiveTrain) {
-                logMsg.innerText = "Please select a train first!";
-                logMsg.style.color = "#f87171";
-                return;
-            }
-            
-            logMsg.innerText = "Saving to CSV...";
-            logMsg.style.color = "#facc15";
-            
-            const payload = {
-                train_no: adminActiveTrain.number,
-                route_start: adminActiveTrain.route_start,
-                route_end: adminActiveTrain.route_end,
-                current_station: document.getElementById('currStation').value,
-                next_station: document.getElementById('nextStation').value
-            };
-            
-            try {
-                const response = await fetch('/api/log_segment', { 
-                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
-                });
-                const result = await response.json();
-                
-                if(result.status === "success") {
-                    logMsg.innerText = "Data Logged Successfully!";
-                    logMsg.style.color = "#4ade80";
-                } else {
-                    logMsg.innerText = "Failed to log data.";
-                    logMsg.style.color = "#f87171";
-                }
-            } catch (err) { logMsg.innerText = "Server Error."; logMsg.style.color = "#f87171"; }
+        async function departStation() {
+            const res = await fetch('/api/admin/depart', { method: 'POST' });
+            const data = await res.json();
+            if(data.error) return alert(data.error);
+            document.getElementById('sysMsg').innerText = "Departure logged. Cameras updating.";
+            fetchAdminData();
         }
-
-        // --- IMAGE DETECTION / EDGE SIMULATION LOGIC ---
-        let currentMode = 'file';
-        const video = document.getElementById('videoElement');
-        const fileInput = document.getElementById('fileInput');
-        const previewImg = document.getElementById('previewImg');
-        const statusMsg = document.getElementById('statusMsg');
-        const canvas = document.getElementById('canvas');
-        const uploadText = document.getElementById('uploadText');
-
-        function setMode(mode) {
-            currentMode = mode;
-            document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
-            event.target.classList.add('active');
-
-            if(mode === 'cam') {
-                document.getElementById('camView').style.display = 'block';
-                document.getElementById('fileView').style.display = 'none';
-            } else {
-                document.getElementById('camView').style.display = 'none';
-                document.getElementById('fileView').style.display = 'block';
-            }
-        }
-
-        async function startCamera() {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-                video.srcObject = stream;
-                statusMsg.innerText = "Camera Active.";
-                statusMsg.style.color = "#4ade80";
-            } catch (err) { 
-                statusMsg.innerText = "Camera Access Denied"; 
-                statusMsg.style.color = "#f87171";
-            }
-        }
-
-        function previewFile() {
-            const file = fileInput.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function(e) { 
-                    previewImg.src = e.target.result; 
-                    previewImg.style.display = "block";
-                    uploadText.style.display = "none";
-                }
-                reader.readAsDataURL(file);
-            }
-        }
-
-        async function processData() {
-            let dataUrl = null;
-            if (currentMode === 'cam') {
-                if (!video.srcObject) return alert("Start Camera first!");
-                canvas.width = video.videoWidth; canvas.height = video.videoHeight;
-                canvas.getContext('2d').drawImage(video, 0, 0);
-                dataUrl = canvas.toDataURL('image/jpeg');
-            } else {
-                if (!fileInput.files[0]) return alert("Please select an image first!");
-                dataUrl = previewImg.src;
-            }
-
-            statusMsg.innerText = "Running YOLOv8 Model...";
-            statusMsg.style.color = "#facc15";
-            
-            const coachId = document.getElementById('targetCoach').value;
-            if(!coachId) return alert("No target coach selected.");
-
-            try {
-                const response = await fetch('/api/simulate_edge_processing', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ image: dataUrl, coach_id: coachId })
-                });
-                const result = await response.json();
-                statusMsg.innerText = `Detected ${result.count} people. Density updated to ${result.density}%`;
-                statusMsg.style.color = "#4ade80";
-                
-                // Immediately refresh grid
-                fetchAdminData();
-            } catch (err) { 
-                statusMsg.innerText = "Error communicating with server."; 
-                statusMsg.style.color = "#f87171";
-            }
-        }
-
-        // --- LIVE GRID LOGIC ---
-        let initializedGrid = false;
 
         async function fetchAdminData() {
             try {
-                const res = await fetch('/api/get_admin_data');
-                const data = await res.json();
-                const grid = document.getElementById('cameraGrid');
-                const select = document.getElementById('targetCoach');
+                const res = await fetch('/api/get_live_status');
+                const state = await res.json();
                 
-                if(!initializedGrid) {
-                    grid.innerHTML = ''; select.innerHTML = '';
-                    Object.keys(data.coaches).forEach(id => {
-                        grid.innerHTML += `
-                            <div class="coach-card">
-                                <img src="/static/station.png" class="cam-feed" id="img-${id}">
-                                <div class="card-body">
-                                    <div style="font-weight:bold; font-size: 14px;">${id}</div>
-                                    <div class="status-badge safe" id="badge-${id}">--</div>
-                                </div>
-                            </div>`;
-                        select.innerHTML += `<option value="${id}">${id}</option>`;
-                    });
-                    initializedGrid = true;
-                }
-                
-                Object.entries(data.coaches).forEach(([id, info]) => {
-                    const img = document.getElementById(`img-${id}`);
-                    const badge = document.getElementById(`badge-${id}`);
+                if(state.train_data) {
+                    const stList = state.train_data.stations;
+                    const idx = state.station_index;
+                    document.getElementById('currSt').innerText = idx < stList.length ? stList[idx].name.split(' (')[0] : "End";
+                    document.getElementById('nextSt').innerText = idx < stList.length - 1 ? stList[idx+1].name.split(' (')[0] : "Destination";
                     
-                    // Add timestamp to prevent browser caching the image
-                    if(img && info.image) img.src = `${info.image}?t=${new Date().getTime()}`;
-                    
-                    if(badge) {
-                        let cls = 'safe'; 
-                        if(info.crowd > 50) cls = 'mod'; 
-                        if(info.crowd > 85) cls = 'danger';
-                        badge.className = `status-badge ${cls}`;
-                        badge.innerText = `${info.crowd}%`;
+                    const grid = document.getElementById('cameraGrid');
+                    let requireImageReload = false;
+                    if(idx !== currentStationIndex) { requireImageReload = true; currentStationIndex = idx; }
+                    if(grid.innerHTML === '') requireImageReload = true;
+
+                    if (requireImageReload) {
+                        grid.innerHTML = ''; 
+                        Object.entries(state.coaches).forEach(([id, info]) => {
+                            if(!info.image) return;
+                            const color = info.crowd > 85 ? '#dc3545' : (info.crowd > 50 ? '#ffc107' : '#28a745');
+                            const textColor = info.crowd > 50 && info.crowd <= 85 ? '#000' : '#fff'; // Dark text for yellow badge
+                            grid.innerHTML += `
+                                <div class="cam-card">
+                                    <img src="${info.image}?t=${new Date().getTime()}" class="cam-feed">
+                                    <div class="cam-info">
+                                        <div class="cam-id">${id}</div>
+                                        <div class="cam-stats">
+                                            <div class="badge" style="background:${color}; color:${textColor};" id="badge-${id}">Live: ${info.crowd}%</div>
+                                            <div class="exp-text" id="exp-${id}">Expected: ${info.expected}%</div>
+                                        </div>
+                                    </div>
+                                </div>`;
+                        });
+                    } else {
+                        Object.entries(state.coaches).forEach(([id, info]) => {
+                            const badge = document.getElementById(`badge-${id}`);
+                            if(badge) {
+                                const color = info.crowd > 85 ? '#dc3545' : (info.crowd > 50 ? '#ffc107' : '#28a745');
+                                const textColor = info.crowd > 50 && info.crowd <= 85 ? '#000' : '#fff';
+                                badge.style.background = color;
+                                badge.style.color = textColor;
+                                badge.innerText = `Live: ${info.crowd}%`;
+                                document.getElementById(`exp-${id}`).innerText = `Expected: ${info.expected}%`;
+                            }
+                        });
                     }
-                });
-            } catch(err) { console.error(err); }
+                }
+            } catch(err) {}
+        }
+        setInterval(fetchAdminData, 2000);
+
+        let demoBase64 = null;
+        function loadDemoPreview(event) {
+            const file = event.target.files[0];
+            if(!file) return;
+            document.getElementById('demoFileName').innerText = file.name;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                demoBase64 = e.target.result;
+                document.getElementById('demoResultImg').src = demoBase64;
+                document.getElementById('demoResultImg').style.display = 'inline-block';
+                document.getElementById('demoResultText').style.display = 'none';
+            };
+            reader.readAsDataURL(file);
         }
 
-        setInterval(fetchAdminData, 3000);
-        fetchAdminData();
+        async function processDemoImage() {
+            if(!demoBase64) return alert("Please select an image first.");
+            const txt = document.getElementById('demoResultText');
+            txt.style.display = 'block';
+            txt.style.color = '#666';
+            txt.innerText = "Analyzing frame data...";
+            
+            const res = await fetch('/api/demo_process', {
+                method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ image: demoBase64 })
+            });
+            const data = await res.json();
+            
+            if(data.status === 'success') {
+                document.getElementById('demoResultImg').src = data.processed_image;
+                txt.style.color = '#28a745';
+                txt.innerHTML = `Calculated Density: <strong>${data.density}%</strong>`;
+            } else { alert("Processing failed."); }
+        }
     </script>
 </body>
 </html>

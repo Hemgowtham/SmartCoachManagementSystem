@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Railway UTS Terminal</title>
+    <style>
+        :root { --primary: #0056b3; --bg: #f4f7f6; --text-main: #333; --border: #ccc; }
+        body { font-family: Arial, sans-serif; background-color: var(--bg); color: var(--text-main); margin: 0; padding: 0; }
+        
+        .top-navbar { background-color: #fff; border-bottom: 2px solid var(--primary); padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 20px;}
+        .top-navbar h1 { margin: 0; font-size: 22px; color: var(--primary); text-transform: uppercase; letter-spacing: 1px;}
+        .system-status { font-size: 13px; font-weight: bold; padding: 5px 10px; background: #e8f5e9; color: #155724; border: 1px solid #c3e6cb; border-radius: 4px; }
+        
+        .container { max-width: 900px; margin: 0 auto; padding: 0 20px; display: flex; gap: 20px; align-items: flex-start;}
+        
+        .panel { background-color: #fff; border: 1px solid var(--border); border-radius: 4px; padding: 25px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); flex: 1;}
+        .panel-header { font-size: 16px; color: var(--primary); margin-top: 0; margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 10px; font-weight: bold; }
+        
+        .form-group { margin-bottom: 15px; }
+        label { display: block; font-weight: bold; margin-bottom: 5px; color: #555; font-size: 13px; text-transform: uppercase;}
+        select, input { width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 4px; font-size: 14px; box-sizing: border-box; background: #fff;}
+        select:disabled { background: #eee; cursor: not-allowed; color: #888;}
+        
+        .btn-primary { width: 100%; padding: 12px; background: var(--primary); color: white; border: none; border-radius: 4px; font-size: 14px; font-weight: bold; cursor: pointer; transition: background 0.2s; margin-top: 10px;}
+        .btn-primary:hover { background: #004494; }
+        
+        .history-panel { flex: 1; background-color: #fff; border: 1px solid var(--border); border-radius: 4px; padding: 25px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); height: 400px; overflow-y: auto;}
+        .ticket { background: #f8f9fa; border: 1px solid #ddd; border-left: 4px solid var(--primary); padding: 12px; margin-bottom: 10px; border-radius: 4px;}
+        .t-title { font-weight: bold; color: #333; font-size: 13px; margin-bottom: 4px;}
+        .t-route { font-size: 12px; color: #666; }
+        .t-meta { display: flex; justify-content: space-between; align-items: center; margin-top: 8px;}
+        .t-count { background: #e2e8f0; color: var(--primary); padding: 2px 6px; border-radius: 3px; font-size: 11px; font-weight: bold; border: 1px solid #cbd5e1;}
+    </style>
+</head>
+<body>
+    <div class="top-navbar">
+        <h1>UTS Local Terminal</h1>
+        <div class="system-status">● TERMINAL ACTIVE</div>
+    </div>
+
+    <div class="container">
+        <div class="panel">
+            <h2 class="panel-header">Issue Unreserved Ticket</h2>
+            <div class="form-group">
+                <label>Train Assignment</label>
+                <select id="trainSelect"><option value="">-- Fetching Train Data --</option></select>
+            </div>
+            <div class="form-group">
+                <label>Origin Station</label>
+                <select id="srcSelect" disabled><option value="">Select Train First</option></select>
+            </div>
+            <div class="form-group">
+                <label>Destination Station</label>
+                <select id="destSelect" disabled><option value="">Select Origin First</option></select>
+            </div>
+            <div class="form-group">
+                <label>Passenger Count</label>
+                <input type="number" id="passCount" min="1" max="500" value="1">
+            </div>
+            <button class="btn-primary" onclick="bookTicket()">Print Ticket & Update Mainframe</button>
+        </div>
+
+        <div class="history-panel">
+            <h2 class="panel-header">Terminal Transaction Log</h2>
+            <div id="historyList">
+                <div style="text-align:center; color:#888; font-size:13px; margin-top: 40px;">No transactions recorded.</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ... (Keep existing JavaScript exactly the same as previous uts.html) ...
+        let currentTrainStations = [];
+        let liveTrainState = null;
+        
+        async function loadTrains() {
+            const res = await fetch('/api/train_list');
+            const trains = await res.json();
+            const select = document.getElementById('trainSelect');
+            select.innerHTML = '<option value="">-- Assign Train --</option>';
+            for(let t of trains) { select.innerHTML += `<option value="${t.number}">${t.number} - ${t.name}</option>`; }
+        }
+        loadTrains();
+
+        setInterval(async () => {
+            try {
+                const res = await fetch('/api/get_live_status');
+                liveTrainState = await res.json();
+                updateSourceDropdown();
+            } catch(e){}
+        }, 2000);
+
+        document.getElementById('trainSelect').addEventListener('change', async (e) => {
+            const tNo = e.target.value;
+            if(!tNo) {
+                document.getElementById('srcSelect').disabled = true; 
+                document.getElementById('destSelect').disabled = true;
+                return;
+            }
+            const res = await fetch('/api/get_train/' + tNo);
+            const train = await res.json();
+            currentTrainStations = train.stations.map(st => st.name.split(' (')[0]);
+            populateSourceDropdown();
+            document.getElementById('destSelect').innerHTML = '<option value="">Select Origin First</option>';
+            document.getElementById('destSelect').disabled = true;
+        });
+
+        function populateSourceDropdown() {
+            const src = document.getElementById('srcSelect');
+            src.disabled = false;
+            src.innerHTML = '<option value="">-- Origin Station --</option>';
+            for(let i = 0; i < currentTrainStations.length - 1; i++) {
+                src.innerHTML += `<option value="${i}">${currentTrainStations[i]}</option>`;
+            }
+            updateSourceDropdown();
+        }
+
+        function updateSourceDropdown() {
+            const tNo = document.getElementById('trainSelect').value;
+            const src = document.getElementById('srcSelect');
+            if(liveTrainState && liveTrainState.active_train === tNo) {
+                const currIdx = liveTrainState.station_index;
+                Array.from(src.options).forEach(opt => {
+                    if(opt.value !== "") {
+                        if(parseInt(opt.value) < currIdx) {
+                            opt.disabled = true;
+                            opt.text = currentTrainStations[opt.value] + " (Passed)";
+                        } else {
+                            opt.disabled = false;
+                            opt.text = currentTrainStations[opt.value];
+                        }
+                    }
+                });
+            }
+        }
+
+        document.getElementById('srcSelect').addEventListener('change', (e) => {
+            const dest = document.getElementById('destSelect');
+            const srcIdx = parseInt(e.target.value);
+            if(isNaN(srcIdx)) {
+                dest.disabled = true;
+                dest.innerHTML = '<option value="">Select Origin First</option>';
+                return;
+            }
+            dest.disabled = false;
+            dest.innerHTML = '<option value="">-- Destination Station --</option>';
+            for(let i = srcIdx + 1; i < currentTrainStations.length; i++) {
+                dest.innerHTML += `<option value="${currentTrainStations[i]}">${currentTrainStations[i]}</option>`;
+            }
+        });
+
+        async function bookTicket() {
+            const tNo = document.getElementById('trainSelect').value;
+            const srcIdx = document.getElementById('srcSelect').value;
+            const destName = document.getElementById('destSelect').value;
+            const count = document.getElementById('passCount').value;
+
+            if(!tNo || srcIdx === "" || !destName || !count) return alert("System Error: Missing fields.");
+
+            const srcName = currentTrainStations[parseInt(srcIdx)];
+            const payload = { train_no: tNo, source: srcName, destination: destName, passengers: parseInt(count) };
+            
+            await fetch('/api/book_uts', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
+
+            const list = document.getElementById('historyList');
+            if(list.innerHTML.includes("No transactions")) list.innerHTML = '';
+            
+            const time = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            const card = document.createElement('div');
+            card.className = 'ticket';
+            card.innerHTML = `
+                <div class="t-title">Tkt Ref: TR-${tNo}-${Math.floor(Math.random()*1000)}</div>
+                <div class="t-route">${srcName} -> ${destName}</div>
+                <div class="t-meta">
+                    <div class="t-count">Qty: ${count}</div>
+                    <div style="font-size:11px; color:#888;">${time}</div>
+                </div>
+            `;
+            list.prepend(card); 
+            document.getElementById('passCount').value = 1;
+        }
+    </script>
+</body>
+</html>

@@ -1,3 +1,10 @@
+"""
+Central Management Server (RailVision)
+--------------------------------------
+Handles API routing, global state synchronization, historical logging, 
+and advanced predictive passenger distribution modeling based on UTS data.
+"""
+
 from flask import Flask, render_template, jsonify, request, send_from_directory
 from flask_cors import CORS
 import os
@@ -11,27 +18,32 @@ from ultralytics import YOLO
 app = Flask(__name__)
 CORS(app)
 
-print("Loading YOLOv8 Model...")
-model = YOLO("yolov8n.pt") 
+print("[SYSTEM] Loading YOLOv8 Model for Validation Panel...")
+model = YOLO("yolov8s.pt") 
 
 TRAIN_DB = {}
 ALL_STATIONS = set()
+UTS_DB = {}
 
-STATION_NAMES = {
-    "SC": "Secunderabad", "GNT": "Guntur", "BZA": "Vijayawada", "VSKP": "Visakhapatnam",
-    "BBS": "Bhubaneswar", "HWH": "Howrah", "RJY": "Rajahmundry", "WL": "Warangal",
-    "HYB": "Hyderabad", "PUNE": "Pune", "CSMT": "CSMT Mumbai", "LPI": "Lingampalli",
-    "TVC": "Trivandrum", "ERN": "Ernakulam", "CBE": "Coimbatore", "NDLS": "New Delhi",
-    "SHM": "Shalimar", "KGP": "Kharagpur", "MAS": "Chennai Central", "CDNR": "Chandanagar",
-    "HFZ": "Hafizpet", "BMT": "Begumpet", "KCG": "Kacheguda", "FM": "Falaknuma",
-    "KCC": "Krishna Canal", "MAG": "Mangalagiri", "MS": "Chennai Egmore", "TBM": "Tambaram",
-    "TEL": "Tenali", "OGL": "Ongole", "NLR": "Nellore", "GDR": "Gudur"
+GLOBAL_STATE = {
+    "active_train": None,
+    "station_index": 0
 }
 
-def format_station(code):
-    name = STATION_NAMES.get(code, code)
-    if name == code: return name
-    return f"{name} ({code})"
+# Stores the raw YOLO density output from the edge node
+# The displayed 'crowd' is mathematically adjusted from this base using UTS data.
+train_state_coaches = {
+    "GEN-1": {"yolo_base": 0, "image": None},
+    "GEN-2": {"yolo_base": 0, "image": None},
+    "GEN-3": {"yolo_base": 0, "image": None},
+    "GEN-4": {"yolo_base": 0, "image": None},
+    "SLR-1": {"yolo_base": 0, "image": None},
+    "SLR-2": {"yolo_base": 0, "image": None},
+    "SLR-M": {"yolo_base": 0, "image": None}
+}
+
+STATION_NAMES = { "SC": "Secunderabad", "GNT": "Guntur", "BZA": "Vijayawada", "VSKP": "Visakhapatnam" }
+def format_station(code): return STATION_NAMES.get(code, code)
 
 def load_train_database():
     try:
@@ -41,129 +53,62 @@ def load_train_database():
                 composition = [{"id": "LOCO", "type": "LOCO", "flags": []}]
                 gen_count, rsrv_count = 1, 1
                 
-                front_flags = []
-                if "1-Front" in row['Female_Coach_Pos']: front_flags.append("female")
-                if "1-Front" in row['Disabled_Coach_Pos']: front_flags.append("disabled")
-                if front_flags: composition.append({"id": "SLR-1", "type": "SLR", "flags": front_flags})
-
+                if "1-Front" in row['Female_Coach_Pos']: composition.append({"id": "SLR-1", "type": "SLR", "flags": ["female"]})
                 for _ in range(int(row['Gen_Front'])):
-                    composition.append({"id": f"GEN-{gen_count}", "type": "GEN", "flags": []})
-                    gen_count += 1
+                    composition.append({"id": f"GEN-{gen_count}", "type": "GEN", "flags": []}); gen_count += 1
                 for _ in range(int(row['Reserved_Coaches'])):
-                    composition.append({"id": f"RSRV-{rsrv_count}", "type": "RSRV", "flags": []})
-                    rsrv_count += 1
-                    
-                mid_flags = []
-                if "1-Middle" in row['Female_Coach_Pos']: mid_flags.append("female")
-                if "1-Middle" in row['Disabled_Coach_Pos']: mid_flags.append("disabled")
-                if mid_flags: composition.append({"id": "SLR-M", "type": "SLR", "flags": mid_flags})
-
+                    composition.append({"id": f"RSRV-{rsrv_count}", "type": "RSRV", "flags": []}); rsrv_count += 1
+                if "1-Middle" in row['Female_Coach_Pos']: composition.append({"id": "SLR-M", "type": "SLR", "flags": ["female"]})
                 for _ in range(int(row['Gen_Back'])):
-                    composition.append({"id": f"GEN-{gen_count}", "type": "GEN", "flags": []})
-                    gen_count += 1
-
-                back_flags = []
-                if "1-Back" in row['Female_Coach_Pos']: back_flags.append("female")
-                if "1-Back" in row['Disabled_Coach_Pos']: back_flags.append("disabled")
-                if back_flags: composition.append({"id": "SLR-2", "type": "SLR", "flags": back_flags})
-
+                    composition.append({"id": f"GEN-{gen_count}", "type": "GEN", "flags": []}); gen_count += 1
+                if "1-Back" in row['Female_Coach_Pos']: composition.append({"id": "SLR-2", "type": "SLR", "flags": ["female"]})
+                    
                 stations_data = []
                 for idx, st in enumerate(row['Halts'].split('|')):
                     fname = format_station(st)
                     ALL_STATIONS.add(fname)
-                    arr = row['Arrival_Times'].split('|')[idx] if idx < len(row['Arrival_Times'].split('|')) else "--:--"
-                    dep = row['Departure_Times'].split('|')[idx] if idx < len(row['Departure_Times'].split('|')) else "--:--"
-                    stations_data.append({"name": fname, "code": st, "arr": arr, "dep": dep})
+                    stations_data.append({"name": fname, "code": st, "arr": "--:--", "dep": "--:--"})
                 
-                rev = format_station(row['Reversal_Station'])
-                dest = format_station(row['Destination'])
-                
-                TRAIN_DB[row['Train_No']] = {
-                    "number": row['Train_No'], "name": row['Train_Name'], "type": row['Train_Type'],
-                    "route_str": f"{format_station(row['Origin'])} -> {dest}",
-                    "route_start": format_station(row['Origin']), "route_end": dest,
-                    "reversal_at": None if rev == dest else rev, "stations": stations_data, "composition": composition
+                t_no = row['Train_No']
+                TRAIN_DB[t_no] = {
+                    "number": t_no, "name": row['Train_Name'], "type": row['Train_Type'],
+                    "route_start": format_station(row['Origin']), "route_end": format_station(row['Destination']),
+                    "stations": stations_data, "composition": composition
                 }
-    except Exception as e: print(f"DB Error: {e}")
+                UTS_DB[t_no] = {st['name'].split(' (')[0]: {'boarding': 0, 'departing': 0} for st in stations_data}
+    except Exception as e: print(f"[ERROR] DB Load Failed: {e}")
 
 load_train_database()
 
-train_state_coaches = {
-    "GEN-1": {"crowd": 0, "image_src": "test_images/GEN-1.jpg", "image": None},
-    "GEN-2": {"crowd": 0, "image_src": "test_images/GEN-2.jpg", "image": None},
-    "GEN-3": {"crowd": 0, "image_src": "test_images/GEN-3.jpg", "image": None},
-    "GEN-4": {"crowd": 0, "image_src": "test_images/GEN-4.jpg", "image": None},
-    "SLR-1": {"crowd": 0, "image_src": "test_images/SLR-1.jpg", "image": None},
-    "SLR-2": {"crowd": 0, "image_src": "test_images/SLR-2.jpg", "image": None},
-    "SLR-M": {"crowd": 0, "image_src": "test_images/SLR-M.jpg", "image": None}
-}
+def distribute_passengers(total_passengers, base_densities, is_boarding=True):
+    """
+    Advanced Distribution Algorithm.
+    Uses squared weighting to exponentially favor empty coaches when boarding, 
+    and exponentially favor crowded coaches when departing.
+    """
+    distributed_changes = {k: 0 for k in base_densities.keys()}
+    if total_passengers <= 0: return distributed_changes
 
-def calculate_and_visualize_density(img, results):
-    h, w = img.shape[:2]
-    boxes = results[0].boxes.xyxy.cpu().numpy()
-    count = len(boxes)
-
-    if count == 0:
-        return 0, img.copy()
-
-    grid_size = int(w / 35) 
-    overlay = np.zeros_like(img)
-    
-    total_valid_cells = 0
-    occupied_cells = 0
-
-    for y in range(0, h, grid_size):
-        for x in range(0, w, grid_size):
-            total_valid_cells += 1
-            cell_x1, cell_y1 = x, y
-            cell_x2, cell_y2 = min(x + grid_size, w), min(y + grid_size, h)
-            
-            is_occupied = False
-            for box in boxes:
-                bx1, by1, bx2, by2 = map(int, box[:4])
-                bw = bx2 - bx1
-                bh = by2 - by1
-                core_x1 = bx1 + int(bw * 0.15)
-                core_x2 = bx2 - int(bw * 0.15)
-                core_y1 = by1 + int(bh * 0.15)
-                core_y2 = by2
-                
-                if (cell_x1 < core_x2 and cell_x2 > core_x1 and
-                    cell_y1 < core_y2 and cell_y2 > core_y1):
-                    is_occupied = True
-                    break
-                    
-            if is_occupied:
-                cv2.rectangle(overlay, (cell_x1, cell_y1), (cell_x2, cell_y2), (0, 0, 255), -1) 
-                occupied_cells += 1
-                
-    MAX_GRID_FILL = 0.45
-    if total_valid_cells > 0:
-        raw_fill = occupied_cells / total_valid_cells
-        density = int((raw_fill / MAX_GRID_FILL) * 100)
+    if is_boarding:
+        # Square the empty space to heavily prioritize unoccupied coaches
+        weights = {k: max(0, 100 - v)**2 for k, v in base_densities.items()}
     else:
-        density = 0
+        # Square the occupied space to prioritize people leaving crowded coaches
+        weights = {k: v**2 for k, v in base_densities.items()}
         
-    density = min(density, 100) 
-    visual_img = cv2.addWeighted(img, 0.6, overlay, 0.4, 0)
-        
-    return density, visual_img
+    total_weight = sum(weights.values())
+    
+    # Fallback to equal distribution if weights zero out
+    if total_weight == 0:
+        weights = {k: 1 for k in base_densities.keys()}
+        total_weight = len(base_densities)
 
-def process_startup_images():
-    print("Initializing Server: Clean Heatmap Analytics...")
-    if not os.path.exists('static/captures'): os.makedirs('static/captures')
-    for coach_id, data in train_state_coaches.items():
-        img_path = data.get("image_src")
-        if os.path.exists(img_path):
-            img = cv2.imread(img_path)
-            results = model.predict(img, classes=[0], conf=0.25, verbose=False)
-            density, visual_img = calculate_and_visualize_density(img, results)
-            filename = f"{coach_id}_startup.jpg"
-            cv2.imwrite(os.path.join("static/captures", filename), visual_img)
-            train_state_coaches[coach_id]["crowd"] = density
-            train_state_coaches[coach_id]["image"] = f"/static/captures/{filename}"
+    for k in distributed_changes.keys():
+        # Conversion: 1 passenger occupies roughly 0.7% of a standard general coach
+        density_change = (total_passengers * (weights[k] / total_weight)) * 0.7
+        distributed_changes[k] = density_change
 
-process_startup_images()
+    return distributed_changes
 
 @app.route('/')
 def passenger_dashboard(): return render_template('index.html')
@@ -171,13 +116,8 @@ def passenger_dashboard(): return render_template('index.html')
 @app.route('/admin')
 def admin_dashboard(): return render_template('admin.html')
 
-@app.route('/test_images/<filename>')
-def serve_test_images(filename): return send_from_directory('test_images', filename)
-
-@app.route('/api/get_train/<train_no>', methods=['GET'])
-def get_train(train_no):
-    if train_no in TRAIN_DB: return jsonify(TRAIN_DB[train_no])
-    return jsonify({"error": "Train not found"}), 404
+@app.route('/uts')
+def uts_dashboard(): return render_template('uts.html')
 
 @app.route('/api/stations', methods=['GET'])
 def get_stations(): return jsonify(sorted(list(ALL_STATIONS)))
@@ -185,9 +125,15 @@ def get_stations(): return jsonify(sorted(list(ALL_STATIONS)))
 @app.route('/api/train_list', methods=['GET'])
 def get_train_list(): return jsonify([{"number": t["number"], "name": t["name"]} for t in TRAIN_DB.values()])
 
+@app.route('/api/get_train/<train_no>', methods=['GET'])
+def get_train(train_no):
+    if train_no in TRAIN_DB: return jsonify(TRAIN_DB[train_no])
+    return jsonify({"error": "Train not found"}), 404
+
 @app.route('/api/search_route', methods=['GET'])
 def search_route():
-    src, dest = request.args.get('src', '').lower(), request.args.get('dest', '').lower()
+    src = request.args.get('src', '').lower()
+    dest = request.args.get('dest', '').lower()
     results = []
     for t_no, t_data in TRAIN_DB.items():
         st_names = [s['name'].lower() for s in t_data['stations']]
@@ -197,53 +143,157 @@ def search_route():
             results.append({"number": t_no, "name": t_data['name'], "type": t_data['type'], "departure": t_data['stations'][st_names.index(src_match)]['dep']})
     return jsonify(results)
 
-@app.route('/api/log_segment', methods=['POST'])
-def log_segment():
-    try:
-        data = request.json
-        clean_name = lambda val: val.split(' (')[0].strip() if val else "Unknown"
-        avg_val = round(sum(c['crowd'] for c in train_state_coaches.values()) / max(1, len(train_state_coaches)), 2)
-        crowd_cat = "Critical" if avg_val > 85 else "High" if avg_val > 60 else "Medium" if avg_val > 30 else "Low"
-        
-        row = [datetime.now().strftime("%d-%m-%Y"), datetime.now().strftime("%A"), data.get('train_no', 'Unknown'), clean_name(data.get('route_start', '')), clean_name(data.get('route_end', '')), clean_name(data.get('current_station', '')), clean_name(data.get('next_station', '')), avg_val, crowd_cat]
-        file_exists = os.path.isfile('historical_crowd_data.csv')
-        with open('historical_crowd_data.csv', mode='a', newline='') as file:
-            writer = csv.writer(file)
-            if not file_exists: writer.writerow(['Date', 'Day', 'Train No', 'Route Start', 'Route End', 'Current Station', 'Next Station', 'Average Crowd', 'Crowd Category'])
-            writer.writerow(row)
-        return jsonify({"status": "success"})
-    except: return jsonify({"status": "error"})
+@app.route('/api/book_uts', methods=['POST'])
+def book_uts():
+    data = request.json
+    t_no = data['train_no']
+    src = data['source']
+    dest = data['destination']
+    count = data['passengers']
+    
+    if t_no in UTS_DB:
+        if src in UTS_DB[t_no]: UTS_DB[t_no][src]['boarding'] += count
+        if dest in UTS_DB[t_no]: UTS_DB[t_no][dest]['departing'] += count
+    return jsonify({"status": "success"})
+
+@app.route('/api/admin/set_train', methods=['POST'])
+def set_train():
+    GLOBAL_STATE['active_train'] = request.json['train_no']
+    GLOBAL_STATE['station_index'] = 0
+    return jsonify({"status": "success"})
+
+@app.route('/api/admin/depart', methods=['POST'])
+def depart():
+    if not GLOBAL_STATE['active_train']: return jsonify({"error": "No train active"})
+    
+    t_no = GLOBAL_STATE['active_train']
+    train_info = TRAIN_DB[t_no]
+    curr_idx = GLOBAL_STATE['station_index']
+    
+    if curr_idx >= len(train_info['stations']) - 1:
+        return jsonify({"error": "End of journey reached"})
+
+    curr_st = train_info['stations'][curr_idx]['name'].split(' (')[0]
+    next_st = train_info['stations'][curr_idx + 1]['name'].split(' (')[0]
+
+    # Calculate average density for logging
+    total_crowd = sum(c['yolo_base'] for c in train_state_coaches.values())
+    avg_val = round(total_crowd / max(1, len(train_state_coaches)), 2)
+    crowd_cat = "Critical" if avg_val > 85 else "High" if avg_val > 60 else "Medium" if avg_val > 30 else "Low"
+    
+    row = [datetime.now().strftime("%d-%m-%Y"), datetime.now().strftime("%H:%M:%S"), t_no, train_info['route_start'], train_info['route_end'], curr_st, next_st, avg_val, crowd_cat]
+    file_exists = os.path.isfile('historical_crowd_data.csv')
+    with open('historical_crowd_data.csv', mode='a', newline='') as file:
+        writer = csv.writer(file)
+        if not file_exists: writer.writerow(['Date', 'Time', 'Train No', 'Route Start', 'Route End', 'Current Station', 'Next Station', 'Average Crowd', 'Crowd Category'])
+        writer.writerow(row)
+
+    GLOBAL_STATE['station_index'] += 1
+    return jsonify({"status": "success", "new_index": GLOBAL_STATE['station_index']})
 
 @app.route('/api/update_crowd', methods=['POST'])
 def update_crowd():
+    # Called exclusively by edge_node.py
     data = request.json
     coach_id = data.get('coach_id')
     if coach_id in train_state_coaches:
-        train_state_coaches[coach_id]['crowd'] = data.get('crowd_percent')
+        train_state_coaches[coach_id]['yolo_base'] = data.get('crowd_percent')
         train_state_coaches[coach_id]['image'] = f"/static/captures/{coach_id}_live.jpg"
     return jsonify({"status": "success"})
 
-@app.route('/api/simulate_edge_processing', methods=['POST'])
-def simulate_edge_processing():
+@app.route('/api/get_live_status', methods=['GET'])
+def get_live_status(): 
+    t_no = GLOBAL_STATE['active_train']
+    if not t_no: return jsonify({"active_train": None})
+
+    train_info = TRAIN_DB[t_no]
+    curr_idx = GLOBAL_STATE['station_index']
+    total_stations = len(train_info['stations'])
+    
+    is_final_station = (curr_idx == total_stations - 1)
+    is_penultimate = (curr_idx == total_stations - 2)
+
+    curr_st = train_info['stations'][curr_idx]['name'].split(' (')[0]
+    next_st = train_info['stations'][curr_idx + 1]['name'].split(' (')[0] if not is_final_station else None
+
+    # Retrieve UTS data for mathematical modifications
+    curr_departing = UTS_DB[t_no][curr_st]['departing'] if curr_st in UTS_DB[t_no] else 0
+    curr_boarding = UTS_DB[t_no][curr_st]['boarding'] if curr_st in UTS_DB[t_no] else 0
+    
+    next_departing = UTS_DB[t_no][next_st]['departing'] if next_st and next_st in UTS_DB[t_no] else 0
+    next_boarding = UTS_DB[t_no][next_st]['boarding'] if next_st and next_st in UTS_DB[t_no] else 0
+
+    base_densities = {k: v['yolo_base'] for k, v in train_state_coaches.items()}
+    
+    # Calculate Live Transformations based on UTS activity at CURRENT station
+    curr_dep_dist = distribute_passengers(curr_departing, base_densities, is_boarding=False)
+    curr_brd_dist = distribute_passengers(curr_boarding, base_densities, is_boarding=True)
+
+    live_coaches = {}
+    for coach_id, cdata in train_state_coaches.items():
+        if is_final_station:
+            live_crowd = 0; expected_crowd = 0
+        else:
+            # Live Crowd = YOLO Base - Current Departures + Current Boardings
+            live_crowd = cdata['yolo_base'] - curr_dep_dist[coach_id] + curr_brd_dist[coach_id]
+            live_crowd = max(0, min(int(live_crowd), 100))
+            
+            if is_penultimate:
+                expected_crowd = 0
+            else:
+                # Expected Crowd = Live Crowd - Future Departures + Future Boardings
+                next_dep_dist = distribute_passengers(next_departing, {coach_id: live_crowd}, is_boarding=False)
+                next_brd_dist = distribute_passengers(next_boarding, {coach_id: live_crowd}, is_boarding=True)
+                expected = live_crowd - next_dep_dist[coach_id] + next_brd_dist[coach_id]
+                expected_crowd = max(0, min(int(expected), 100))
+
+        live_coaches[coach_id] = {
+            "crowd": live_crowd, 
+            "expected": expected_crowd, 
+            "image": cdata['image']
+        }
+
+    return jsonify({"active_train": t_no, "station_index": curr_idx, "train_data": train_info, "coaches": live_coaches})
+
+@app.route('/api/demo_process', methods=['POST'])
+def demo_process():
+    """ Methodology Validation API for Panel Presentation """
     try:
         data = request.json
-        coach_id = data.get('coach_id')
-        img = cv2.imdecode(np.frombuffer(base64.b64decode(data.get('image').split(',')[1]), np.uint8), cv2.IMREAD_COLOR)
-        results = model.predict(img, classes=[0], conf=0.25, verbose=False)
-        density, visual_img = calculate_and_visualize_density(img, results)
-        filename = f"{coach_id}_processed.jpg"
-        cv2.imwrite(os.path.join("static/captures", filename), visual_img)
-        if coach_id in train_state_coaches:
-            train_state_coaches[coach_id]['crowd'] = density
-            train_state_coaches[coach_id]['image'] = f"/static/captures/{filename}"
-        return jsonify({"status": "success", "count": len(results[0].boxes), "density": density})
+        encoded_data = data.get('image').split(',')[1]
+        nparr = np.frombuffer(base64.b64decode(encoded_data), np.uint8)
+        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+        h, w = img.shape[:2]
+        boxes = model.predict(img, classes=[0], conf=0.15, verbose=False)[0].boxes.xyxy.cpu().numpy()
+        
+        overlay = np.zeros_like(img)
+        total_weighted_mass = 0
+        
+        for box in boxes:
+            x1, y1, x2, y2 = map(int, box[:4])
+            feet_x = int((x1 + x2) / 2)
+            feet_y = int(y2)
+            
+            depth_ratio = 1.0 - (feet_y / h) 
+            occlusion_weight = 1.0 + (depth_ratio * 2.0) 
+            total_weighted_mass += occlusion_weight
+            
+            radius = int(w * 0.05 * (feet_y / h)) 
+            if radius > 0:
+                cv2.circle(overlay, (feet_x, feet_y), radius, (0, 0, 255), -1)
+                cv2.rectangle(overlay, (x1, int(y1 + (y2-y1)*0.2)), (x2, y2), (0, 0, 255), 2)
+
+        density = min(int((total_weighted_mass / 35.0) * 100), 100)
+        visual_img = cv2.addWeighted(img, 0.7, overlay, 0.6, 0)
+        cv2.putText(visual_img, f"Mass Index: {round(total_weighted_mass,1)} | Spatial Density: {density}%", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 255), 2)
+        
+        _, buffer = cv2.imencode('.jpg', visual_img)
+        processed_b64 = "data:image/jpeg;base64," + base64.b64encode(buffer).decode('utf-8')
+        
+        return jsonify({"status": "success", "density": density, "processed_image": processed_b64})
     except Exception as e: return jsonify({"status": "error", "message": str(e)})
 
-@app.route('/api/get_status', methods=['GET'])
-def get_status(): return jsonify({"coaches": {k: v['crowd'] for k, v in train_state_coaches.items()}})
-
-@app.route('/api/get_admin_data', methods=['GET'])
-def get_admin_data(): return jsonify({"coaches": train_state_coaches})
-
 if __name__ == '__main__':
+    if not os.path.exists('static/captures'): os.makedirs('static/captures')
     app.run(debug=True, host='0.0.0.0', port=5000)
