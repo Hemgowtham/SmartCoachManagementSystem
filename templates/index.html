@@ -3,92 +3,143 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="static/favicon.png">
     <title>RailVision: Passenger Dashboard</title>
      <style>
         :root { --primary: #0056b3; --bg: #f4f7f6; --text-main: #333; --border: #ccc; }
+        * { box-sizing: border-box; }
         body { font-family: Arial, sans-serif; background-color: var(--bg); color: var(--text-main); margin: 0; padding: 0; display: flex; flex-direction: column; align-items: center; }
 
-        /* Unified Header */
-        .top-navbar { background-color: #fff; border-bottom: 2px solid var(--primary); padding: 15px 30px; width: 100%; box-sizing: border-box; text-align: center; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);}
+        .top-navbar { background-color: #fff; border-bottom: 2px solid var(--primary); padding: 15px 30px; width: 100%; box-sizing: border-box; display: flex; justify-content: center; align-items: center; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);}
+        .brand-container { display: flex; align-items: center; gap: 15px; }
+        .ir-logo { height: 38px; width: auto; object-fit: contain; }
         .top-navbar h1 { margin: 0; font-size: 24px; color: var(--primary); text-transform: uppercase; letter-spacing: 1px;}
         
         .container { width: 100%; max-width: 1000px; padding: 0 20px; box-sizing: border-box;}
 
-        /* Search Panel */
         .panel { background-color: #fff; border: 1px solid var(--border); border-radius: 4px; padding: 20px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-        .search-row { display: flex; gap: 15px; align-items: center; justify-content: center; flex-wrap: wrap; }
-        .search-box { display: flex; gap: 5px; position: relative; }
-        .search-box input { padding: 10px; border: 1px solid var(--border); border-radius: 4px; font-size: 14px; width: 200px;}
-        .search-box button { padding: 10px 20px; background: #333; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px; transition: 0.2s;}
+        .search-row { display: flex; gap: 15px; align-items: center; justify-content: center; flex-wrap: wrap; width: 100%;}
+        .search-box { display: flex; gap: 5px; position: relative; flex: 1; min-width: 250px;}
+        .search-box input { padding: 10px; border: 1px solid var(--border); border-radius: 4px; font-size: 14px; width: 100%; box-sizing: border-box;}
+        .search-box button { padding: 10px 20px; background: #333; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px; transition: 0.2s; white-space: nowrap;}
         .search-box button.btn-primary { background: var(--primary); }
 
         .autocomplete-list { position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid var(--border); z-index: 99; max-height: 200px; overflow-y: auto; border-radius: 0 0 4px 4px; display: none; text-align: left; }
         .autocomplete-list div { padding: 10px; cursor: pointer; font-size: 13px; border-bottom: 1px solid #eee; }
         .autocomplete-list div:hover { background-color: #f8f9fa; }
 
-        /* Welcome & Error Screens */
         .welcome-screen { text-align: center; padding: 40px 20px;}
-        .welcome-screen h2 { color: var(--primary); font-size: 24px; margin-bottom: 10px; }
         .not-found { color: #dc3545; font-weight: bold; padding: 15px; background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 4px; margin-top: 20px; display: none; font-size: 14px;}
         
         .route-results { display: none; margin-top: 20px;}
         .train-result-btn { display: block; width: 100%; text-align: left; padding: 15px; margin-bottom: 10px; background: #f8f9fa; border: 1px solid var(--border); border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px; transition: 0.2s;}
         .train-result-btn:hover { border-color: var(--primary); background: #fff;}
 
-        /* Status Banner */
-        .status-banner { background: #333; color: white; padding: 12px; border-radius: 4px; text-align: center; font-size: 16px; font-weight: bold; margin-bottom: 20px; display: none;}
-        .status-banner span { color: #28a745; }
+        .status-banner { background: #333; color: white; padding: 12px; border-radius: 4px; text-align: center; font-size: 16px; font-weight: bold; margin-bottom: 20px; display: none; width: 100%;}
+        .status-banner span { color: #4ade80; }
         .status-offline { background: #666; }
+
+        /* --- NEW WARNING BANNER CSS --- */
+        .warning-banner { background: #fff3cd; color: #856404; padding: 12px; border-radius: 4px; text-align: center; font-size: 14px; font-weight: bold; margin-bottom: 20px; display: none; width: 100%; border: 1px solid #ffeeba; box-shadow: 0 2px 4px rgba(0,0,0,0.05);}
 
         #dashboardContent { display: none; width: 100%; flex-direction: column; align-items: stretch; }
 
-        /* Info Header Card */
         .info-card { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; border-left: 4px solid var(--primary); }
         .info-label { font-size: 11px; color: #666; text-transform: uppercase; font-weight: bold; }
         .info-val { font-size: 15px; font-weight: bold; color: #333; margin-top: 4px;}
         
-        /* Progress Track */
-        .track-wrapper { position: relative; margin: 40px 0; height: 80px; } 
+        .track-wrapper { position: relative; margin: 40px 0; height: 80px; width: 100%; overflow-x: hidden;} 
         .rail { position: absolute; top: 40px; left: 0; width: 100%; height: 4px; background: #ddd; z-index: 0; }
         .progress { position: absolute; top: 40px; left: 0; height: 4px; background: var(--primary); width: 0%; transition: width 0.5s; z-index: 1; }
-        .stations { display: flex; justify-content: space-between; position: relative; z-index: 2; }
+        .stations { display: flex; justify-content: space-between; position: relative; z-index: 2; width: 100%;}
         .station-node { display: flex; flex-direction: column; align-items: center; width: 100px; }
         .st-dot { width: 14px; height: 14px; background: white; border: 3px solid #ccc; border-radius: 50%; margin-bottom: 8px; transition: 0.3s; z-index: 2; }
         .station-node.active .st-dot { border-color: var(--primary); background: var(--primary); }
         .st-name { font-size: 12px; font-weight: bold; color: #555; text-align: center;}
         
-        /* Train Container */
-        .scroll-controls { display: flex; justify-content: space-between; margin-bottom: -10px; z-index: 10; position: relative;}
+        .scroll-controls { display: flex; justify-content: space-between; margin-bottom: -10px; z-index: 10; position: relative; width: 100%;}
         .scroll-btn { background: #fff; border: 1px solid var(--border); padding: 6px 15px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 12px;}
         .scroll-btn:hover { background: #eee; }
 
-        .train-container { width: 100%; overflow-x: auto; padding-bottom: 40px; scroll-behavior: smooth; border: 1px solid #eee; background: #fff;}
+        .train-container { width: 100%; overflow-x: auto; padding-bottom: 40px; scroll-behavior: smooth; border: 1px solid var(--border); background: #fff;}
         .train-container::-webkit-scrollbar { display: none; }
         
-        .train-display { display: flex; align-items: flex-end; padding: 30px 20px 20px 20px; gap: 150px; min-width: max-content; }
+        .train-display { display: flex; align-items: flex-end; padding: 60px 20px 20px 20px; gap: 150px; min-width: max-content; }
         
-        .bogie { position: relative; width: 150px; margin-right: 5px; flex-shrink: 0; border-radius: 4px; padding-bottom: 50px; transition: box-shadow 0.3s ease;}
-        .bogie img.main-img { height: 60px; width: auto; display: block; opacity: 0.9;}
+        .bogie { position: relative; width: 150px; margin-right: 5px; flex-shrink: 0; padding-bottom: 50px; transition: 0.3s ease;}
+        .bogie img.main-img { height: 60px; width: auto; display: block; opacity: 0.9; transition: filter 0.3s ease;}
         .bogie.loco-style { width: 160px; margin-right: -27px; z-index: 5;}
         .bogie.loco-style img.main-img { height: 60px; opacity: 1;}
         
         .capacity-bar { position: absolute; top: -15px; left: 50%; transform: translateX(-50%); width: 80px; height: 6px; background: #eee; border-radius: 3px; overflow: hidden; border: 1px solid #ccc; }
         .capacity-fill { height: 100%; width: 0%; background: #28a745; transition: width 0.5s; }
         
+        .special-icon { position: absolute; top: -45px; left: 50%; transform: translateX(-50%); width: 28px; height: 28px; background: #fff; border-radius: 50%; padding: 4px; box-shadow: 0 2px 6px rgba(0,0,0,0.3); border: 2px solid var(--primary); z-index: 15;}
+
         .bogie-label { position: absolute; bottom: 25px; left: 0; right: 0; text-align: center; font-size: 11px; font-weight: bold; color: #555; }
-        .expected-label { position: absolute; bottom: 0px; left: 10%; width: 80%; text-align: center; font-size: 11px; font-weight: bold; color: #fff; background: #60a5fa; padding: 4px 0; border-radius: 3px; border: 1px solid #3b82f6;}
+        .expected-label { position: absolute; bottom: 0px; left: 10%; width: 80%; text-align: center; font-size: 11px; font-weight: bold; color: #fff; background: #60a5fa; padding: 4px 0; border-radius: 3px; border: 1px solid #3b82f6; transition: 0.3s ease;}
 
-        /* Professional 10s Highlight */
-        .best-glow { border-bottom: 4px solid #28a745; background: #f0fdf4; }
+        .rev-indicator {
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            margin-top: 6px;
+            font-size: 9px;
+            color: #b45309;
+            background: #fef3c7;
+            padding: 3px 6px;
+            border-radius: 12px;
+            border: 1px solid #fde68a;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+        .rev-indicator svg { width: 12px; height: 12px; fill: currentColor; }
 
-        .btn-row { margin-top: 20px; display: flex; gap: 15px; justify-content: center;}
-        .action-btn { padding: 12px 25px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; color: white; font-size: 14px;}
-        .action-btn:hover { opacity: 0.9; }
+        .swap-btn {
+            background: #f8f9fa;
+            border: 1px solid var(--border);
+            border-radius: 50%;
+            width: 38px;
+            height: 38px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: var(--primary);
+            transition: all 0.2s ease;
+            flex-shrink: 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .swap-btn:hover { background: #e2e8f0; transform: scale(1.05); }
+        .swap-btn:active { transform: scale(0.95); }
+        .swap-btn svg { width: 20px; height: 20px; fill: currentColor; transition: transform 0.3s ease;}
+
+        @media (max-width: 768px) {
+            .swap-btn { transform: rotate(90deg); margin: -5px auto; z-index: 5;}
+            .swap-btn:hover { transform: rotate(90deg) scale(1.05); }
+            .swap-btn:active { transform: rotate(90deg) scale(0.95); }
+        }
+
+        @keyframes pngDropGlow {
+            0% { filter: drop-shadow(0 0 2px rgba(40, 167, 69, 0.4)); transform: scale(1); }
+            50% { filter: drop-shadow(0 0 12px rgba(40, 167, 69, 1)); transform: scale(1.02); }
+            100% { filter: drop-shadow(0 0 2px rgba(40, 167, 69, 0.4)); transform: scale(1); }
+        }
+        .best-glow { background: transparent !important; border: none !important; box-shadow: none !important; }
+        .best-glow img.main-img { animation: pngDropGlow 1.5s infinite; opacity: 1 !important;}
+        .best-glow .expected-label { background: #28a745; border-color: #1e7e34; box-shadow: 0 0 10px rgba(40,167,69,0.5); transform: scale(1.05); }
+
+        .mobile-bogie-info { display: none; } 
+        .btn-row { margin-top: 20px; display: flex; gap: 15px; justify-content: center; width: 100%;}
+        .action-btn { padding: 12px 25px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; color: white; font-size: 14px; text-transform: uppercase;}
+        .rec-btn { background: var(--primary); } .rec-btn:hover{background: #004494;}
 
         @media (max-width: 768px) {
             .search-row { flex-direction: column; align-items: stretch; gap: 10px;}
-            .search-box { flex-direction: column; width: 100%;}
-            .search-box input { width: 100%;}
+            .search-box { flex-direction: column; width: 100%; flex: auto;}
+            .search-box input, .search-box button { width: 100%;}
             .info-card { grid-template-columns: 1fr 1fr; }
 
             .track-wrapper { height: auto; min-height: 200px; display: block; margin: 20px 0; padding-top: 0;}
@@ -99,56 +150,86 @@
             .st-dot { margin-bottom: 0; left: 10px; position: relative;}
             .st-name { margin-left: 25px; text-align: left;}
 
-            .train-display { gap: 0px; padding: 20px 10px;}
+            .train-display { gap: 0px; padding: 50px 10px 20px 10px;}
             .main-img, .capacity-bar, .bogie-label, .expected-label { display: none !important; }
             
             .bogie { width: 65px; height: 55px; padding-bottom: 0; background: var(--mob-bg); border-radius: 4px; display: flex; flex-direction: column; justify-content: center; align-items: center; border-bottom: 3px solid #333; margin-right: 2px;}
             .bogie.loco-style { width: 75px; border-radius: 15px 4px 4px 4px; background: #333;}
             
+            .special-icon { top: -35px; width: 22px; height: 22px; padding: 2px; }
+
             .mobile-bogie-info { display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; width: 100%; height: 100%; position: relative; display: flex !important;}
-            .m-id { font-weight: bold; font-size: 12px; }
-            .m-crowd { font-size: 10px; font-weight: bold; background: rgba(0,0,0,0.3); padding: 2px 4px; border-radius: 2px; margin-top:2px;}
+            .m-id { font-weight: bold; font-size: 11px; margin-bottom: 2px;}
+            .m-crowd { font-size: 9px; font-weight: bold; background: rgba(0,0,0,0.3); padding: 1px 4px; border-radius: 2px; margin-bottom: 2px;}
             .m-exp { font-size: 9px; font-weight: bold; color: #fff; margin-top: 2px; }
 
-            .best-glow { border: 2px solid #28a745; background: transparent; }
+            @keyframes mobileBorderPulse {
+                0% { border-color: #28a745; box-shadow: 0 0 5px rgba(40,167,69,0.3); }
+                50% { border-color: #1e7e34; box-shadow: 0 0 15px rgba(40,167,69,0.8), inset 0 0 10px rgba(40,167,69,0.3); }
+                100% { border-color: #28a745; box-shadow: 0 0 5px rgba(40,167,69,0.3); }
+            }
+            .best-glow { animation: mobileBorderPulse 1.5s infinite !important; border: 2px solid #28a745 !important; border-radius: 6px; }
             .action-btn { width: 100%;}
         }
-        /* Hide mobile block text on desktop */
+        
+        @media (max-width: 480px) { .info-card { grid-template-columns: 1fr; } }
         @media (min-width: 769px) { .mobile-bogie-info { display: none !important; } }
     </style>
 </head>
 <body>
 
     <div class="top-navbar">
-        <h1>RailVision Passenger</h1>
+        <div class="brand-container">
+            <img src="/static/favicon.png" alt="IR Logo" class="ir-logo">
+            <h1>RailVision</h1>
+        </div>
     </div>
 
     <div class="container">
+        
         <div class="panel">
+            <h2>Search Trains</h2>
+            
+            <div class="search-row" style="margin-bottom: 15px;">
+                <div class="search-box">
+                    <input type="text" id="trainInput" placeholder="Search by Train No. or Name" oninput="filterTrains()" onfocus="filterTrains()">
+                    <div id="trainList" class="autocomplete-list"></div>
+                </div>
+                <button class="btn btn-primary" style="padding: 10px 20px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; color: white; white-space: nowrap; background: var(--primary);" onclick="loadTrainData()">Track Train</button>
+            </div>
+            
+            <hr style="border:0; height:1px; background:#eee; margin: 15px 0;">
+            
             <div class="search-row">
                 <div class="search-box">
-                    <input type="text" id="trainInput" placeholder="Direct Train No" oninput="filterTrains()" onfocus="filterTrains()">
-                    <div id="trainList" class="autocomplete-list"></div>
-                    <button class="btn-primary" onclick="loadTrainData()">Track Train</button>
+                    <input type="text" id="srcInput" placeholder="Origin Station" oninput="filterStations('srcInput', 'srcList')" onfocus="filterStations('srcInput', 'srcList')">
+                    <div id="srcList" class="autocomplete-list"></div>
                 </div>
-            </div>
-            <hr style="border:0; height:1px; background:#eee; margin: 15px 0;">
-            <div class="search-row">
-                <div class="search-box"><input type="text" id="srcInput" placeholder="Origin Station" oninput="filterStations('srcInput', 'srcList')" onfocus="filterStations('srcInput', 'srcList')"><div id="srcList" class="autocomplete-list"></div></div>
-                <div class="search-box"><input type="text" id="destInput" placeholder="Destination Station" oninput="filterStations('destInput', 'destList')" onfocus="filterStations('destInput', 'destList')"><div id="destList" class="autocomplete-list"></div></div>
-                <div class="search-box"><button onclick="searchRoute()">Find Route</button></div>
+                
+                <button class="swap-btn" onclick="swapStations()" title="Swap Stations">
+                    <svg viewBox="0 0 24 24"><path d="M16 17.01V10h-2v7.01h-3L15 21l4-3.99h-3zM9 3L5 6.99h3V14h2V6.99h3L9 3z"/></svg>
+                </button>
+
+                <div class="search-box">
+                    <input type="text" id="destInput" placeholder="Destination Station" oninput="filterStations('destInput', 'destList')" onfocus="filterStations('destInput', 'destList')">
+                    <div id="destList" class="autocomplete-list"></div>
+                </div>
+                
+                <button style="background: #333; padding: 10px 20px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; color: white; white-space: nowrap;" onclick="searchRoute()">Find Route</button>
             </div>
         </div>
+         
         
-        <div id="welcomeScreen" class="welcome-screen panel">
-            <h2>Density Analytics System</h2>
-            <p style="color: #666; font-size: 14px;">Enter a train number or search a route to view real-time capacity and prediction data.</p>
-            <div id="notFoundMsg" class="not-found">Service unavailable for specified route.</div>
+        <div id="welcomeScreen" class="welcome-screen panel" style="padding: 40px 20px; text-align: center;">
+            <img src="/static/welcome_train.jpg" alt="Train" style="width: 100%; max-width: 600px; height: auto; max-height: 220px; object-fit: contain; margin: 0 auto; display: block;">
+            <div id="notFoundMsg" class="not-found" style="margin-top: 20px;">Service unavailable for specified route.</div>
         </div>
 
         <div id="routeResults" class="route-results panel"></div>
 
         <div id="statusBanner" class="status-banner">System Standby</div>
+        
+        <div id="reversalWarning" class="warning-banner"></div>
 
         <div id="dashboardContent">
             <div class="panel info-card">
@@ -171,20 +252,29 @@
             </div>
 
             <div class="btn-row">
-                <button class="action-btn" style="background: var(--primary);" onclick="findBestCoach()">Identify Optimal Coach</button>
-                <button class="action-btn" style="background: #60a5fa;" onclick="speakStatus()">🔊 Audio Announcement</button>
+                <button class="action-btn rec-btn" onclick="findBestCoach()">Scroll to Optimal Coach</button>
+                <button class="action-btn" style="background: #333;" onclick="speakStatus()">Audio Status</button>
             </div>
         </div>
     </div>
 
     <script>
-        // ... (Keep existing JavaScript exactly the same as previous index.html) ...
         let searchedTrain = null;
         let pollingInterval = null;
         let allTrains = [];
         let allStations = [];
+        let currentStationIndex = 0;
+        let trainStations = [];
+        let isFirstLoad = true;
 
         window.speechSynthesis.onvoiceschanged = () => { window.speechSynthesis.getVoices(); };
+
+        window.addEventListener('keydown', function(e) {
+            if (e.key === 'AudioVolumeUp' || e.code === 'VolumeUp') {
+                e.preventDefault(); 
+                speakStatus();
+            }
+        });
 
         async function fetchInitialData() {
             try {
@@ -254,7 +344,7 @@
                 
                 resDiv.style.display = 'block';
                 document.getElementById('welcomeScreen').style.display = 'none';
-                resDiv.innerHTML = '<h3 style="margin-top:0; color:var(--primary); font-size:16px;">Available Transit Services</h3>';
+                resDiv.innerHTML = '<h3 style="margin-top:0; color:var(--primary); font-size:16px; border-bottom: 1px solid #eee; padding-bottom: 10px;">Available Transit Services</h3>';
                 
                 trains.forEach(t => {
                     let btn = document.createElement('button');
@@ -270,6 +360,21 @@
             } catch(err) {}
         }
 
+        // SWAP FUNCTION
+        function swapStations() {
+            const srcInput = document.getElementById('srcInput');
+            const destInput = document.getElementById('destInput');
+            
+            // Swap the text values
+            const temp = srcInput.value;
+            srcInput.value = destInput.value;
+            destInput.value = temp;
+            
+            // Hide the autocomplete dropdowns immediately after swapping
+            document.getElementById('srcList').style.display = 'none';
+            document.getElementById('destList').style.display = 'none';
+        }
+
         async function loadTrainData() {
             const input = document.getElementById('trainInput').value;
             try {
@@ -277,6 +382,8 @@
                 if (!response.ok) return alert("System Error: Identifier not found");
                 searchedTrain = await response.json();
                 
+                isFirstLoad = true;
+
                 document.getElementById('welcomeScreen').style.display = 'none';
                 document.getElementById('routeResults').style.display = 'none';
                 document.getElementById('dashboardContent').style.display = 'flex';
@@ -298,24 +405,39 @@
                 const state = await res.json();
                 
                 if (state.active_train === searchedTrain.number) {
-                    let stList = state.train_data.stations;
-                    let currIdx = state.station_index;
-                    let currName = stList[currIdx].name.split(' (')[0];
-                    let nextName = currIdx < stList.length - 1 ? stList[currIdx+1].name.split(' (')[0] : "Terminus";
+                    trainStations = state.train_data.stations;
+                    currentStationIndex = state.station_index;
+                    let currName = trainStations[currentStationIndex].name.split(' (')[0];
+                    let nextStationObj = currentStationIndex < trainStations.length - 1 ? trainStations[currentStationIndex+1] : null;
+                    let nextName = nextStationObj ? nextStationObj.name.split(' (')[0] : "Terminus";
                     
+                    // Reversal Data Handlers
+                    let reversals = state.train_data.reversals || [];
+                    let reversalBadge = state.is_reversed ? `<span style="color:#fbbf24; margin-left: 10px; border: 1px solid #fbbf24; padding: 2px 6px; border-radius: 4px; font-size: 12px;">Loco Reversed</span>` : "";
+
                     document.getElementById('statusBanner').style.display = 'block';
                     document.getElementById('statusBanner').className = "status-banner";
-                    document.getElementById('statusBanner').innerHTML = `LIVE TELEMETRY | Position: <span>${currName}</span> &nbsp;|&nbsp; Next Stop: <span>${nextName}</span>`;
+                    document.getElementById('statusBanner').innerHTML = `LIVE TELEMETRY | Position: <span>${currName}</span> &nbsp;|&nbsp; Next Stop: <span>${nextName}</span> ${reversalBadge}`;
 
-                    renderStations(stList, currName);
-                    updateProgressBar(currIdx, stList.length);
-                    renderTrain(searchedTrain.composition, state.coaches);
+                    // --- NEW: Dynamic Warning Banner ---
+                    let revWarningDiv = document.getElementById('reversalWarning');
+                    if (nextStationObj && reversals.includes(nextStationObj.code)) {
+                        revWarningDiv.style.display = 'block';
+                        revWarningDiv.innerHTML = `⚠️ NOTICE: Engine reversal scheduled at ${nextName}. Coach physical positions will be inverted.`;
+                    } else {
+                        revWarningDiv.style.display = 'none';
+                    }
+
+                    renderStations(trainStations, currName, reversals);
+                    updateProgressBar(currentStationIndex, trainStations.length);
+                    renderTrain(state.active_composition, state.coaches);
                 } else {
                     document.getElementById('statusBanner').style.display = 'block';
                     document.getElementById('statusBanner').className = "status-banner status-offline";
                     document.getElementById('statusBanner').innerHTML = `SCHEDULED DATA | Real-time telemetry offline.`;
+                    document.getElementById('reversalWarning').style.display = 'none';
 
-                    renderStations(searchedTrain.stations, null);
+                    renderStations(searchedTrain.stations, null, searchedTrain.reversals || []);
                     updateProgressBar(0, searchedTrain.stations.length);
                     renderTrain(searchedTrain.composition, {}); 
                 }
@@ -329,26 +451,55 @@
             else { bar.style.width = percent + "%"; bar.style.height = "4px"; }
         }
 
-        function renderStations(stationsArray, currentStationName) {
-            const container = document.getElementById('stationsContainer');
-            container.innerHTML = ""; 
-            stationsArray.forEach((st) => {
-                const isActive = currentStationName && (st.name.split(' (')[0] === currentStationName);
-                const node = document.createElement('div');
-                node.className = `station-node ${isActive ? 'active' : ''}`;
-                node.innerHTML = `<div class="st-dot"></div><div class="st-name">${st.name}</div>`;
-                container.appendChild(node);
-            });
-        }
+        // --- UPDATED: Passing Reversals Array into Stations Render ---
+        function renderStations(stationsArray, currentStationName, reversalsArray = []) {
+    const container = document.getElementById('stationsContainer');
+    container.innerHTML = ""; 
+    stationsArray.forEach((st) => {
+        const isActive = currentStationName && (st.name.split(' (')[0] === currentStationName);
+        const isReversal = reversalsArray.includes(st.code);
+        
+        // Clean, perfectly aligned SVG badge instead of a text emoji
+        const revBadge = isReversal ? `
+            <div class="rev-indicator" title="Engine Reversal Station">
+                <svg viewBox="0 0 24 24"><path d="M6.99 11L3 15l3.99 4v-3H14v-2H6.99v-3zM21 9l-3.99-4v3H10v2h7.01v3L21 9z"/></svg>
+                Reversal
+            </div>` : '';
+        
+        const node = document.createElement('div');
+        node.className = `station-node ${isActive ? 'active' : ''}`;
+        
+        // Badge is now its own element centered below the station name
+        node.innerHTML = `
+            <div class="st-dot"></div>
+            <div class="st-name">${st.name}</div>
+            ${revBadge}
+        `;
+        container.appendChild(node);
+    });
+}
 
         function renderTrain(composition, crowdData) {
             const container = document.getElementById('trainDisplay');
             container.innerHTML = "";
 
+            let minCrowd = Infinity; 
+            let bestCoachId = null;
+            composition.forEach(coach => {
+                if (coach.type === "GEN" || coach.type === "SLR") {
+                    let exp = (crowdData[coach.id] || {expected: 0}).expected;
+                    if (exp < minCrowd) { 
+                        minCrowd = exp; 
+                        bestCoachId = coach.id; 
+                    }
+                }
+            });
+
             composition.forEach((coach, i) => {
                 const bogie = document.createElement('div');
                 bogie.className = 'bogie';
                 if (coach.type === "LOCO") bogie.classList.add('loco-style');
+                if (coach.id === bestCoachId) bogie.classList.add('best-glow');
                 bogie.id = `bogie-${i}`;
                 
                 const isGeneral = (coach.type === "GEN" || coach.type === "SLR");
@@ -365,14 +516,22 @@
                 
                 let imgUrl = coach.type === "LOCO" ? "/static/engine.png" : "/static/coach.png";
                 let mobId = coach.type === 'LOCO' ? 'ENG' : coach.id.replace('GEN-', 'GS-');
+
+                let specialIconHtml = "";
+                if (i === 1) { 
+                    specialIconHtml = '<img src="/static/disabled.png" class="special-icon" title="Disabled Coach">';
+                } else if (i === composition.length - 1) { 
+                    specialIconHtml = '<img src="/static/female.png" class="special-icon" title="Ladies Coach">';
+                }
                 
                 let expHtmlMob = isGeneral ? `<div class="m-exp">Exp: ${exp}%</div>` : '';
                 let expHtmlDesk = isGeneral ? `<div class="expected-label">Expected: ${exp}%</div>` : '';
 
                 let html = `
+                    ${specialIconHtml}
                     <div class="mobile-bogie-info">
                         <div class="m-id">${mobId}</div>
-                        ${isGeneral ? `<div class="m-crowd">${crowd}%</div>` : ''}
+                        ${isGeneral ? `<div class="m-crowd">Live: ${crowd}%</div>` : ''}
                         ${expHtmlMob}
                     </div>
 
@@ -385,33 +544,29 @@
                 bogie.dataset.type = coach.type; bogie.dataset.coachId = coach.id; bogie.dataset.crowd = exp;
                 bogie.innerHTML = html; container.appendChild(bogie);
             });
+
+            if (isFirstLoad && bestCoachId) {
+                setTimeout(() => {
+                    const target = document.querySelector('.best-glow');
+                    if(target) target.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+                }, 300);
+                isFirstLoad = false;
+            }
         }
 
         function findBestCoach() {
-            let minCrowd = Infinity; let bestId = null;
-            const bogies = document.querySelectorAll('.bogie');
-            
-            bogies.forEach(b => b.classList.remove('best-glow'));
-            
-            bogies.forEach(b => {
-                if (b.dataset.type === 'GEN' || b.dataset.type === 'SLR') {
-                    let c = parseInt(b.dataset.crowd) || 0;
-                    if (c < minCrowd) { minCrowd = c; bestId = b.id; }
-                }
-            });
-            
-            if (bestId) {
-                const target = document.getElementById(bestId);
-                target.classList.add('best-glow');
+            const target = document.querySelector('.best-glow');
+            if (target) {
                 target.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
-                
-                setTimeout(() => { target.classList.remove('best-glow'); }, 10000);
             }
         }
 
         function speakStatus() {
-            if(!searchedTrain) return;
+            if(!searchedTrain || trainStations.length === 0) return;
+            
+            let nextStation = currentStationIndex < trainStations.length - 1 ? trainStations[currentStationIndex + 1].name.split(' (')[0] : "Destination";
             let minCrowd = Infinity; let bestCoachId = null; let bestIndex = -1;
+            
             const bogies = document.querySelectorAll('.bogie');
             bogies.forEach((b, index) => {
                 if (b.dataset.type === 'GEN' || b.dataset.type === 'SLR') {
@@ -419,12 +574,48 @@
                     if (c < minCrowd) { minCrowd = c; bestCoachId = b.dataset.coachId; bestIndex = index; }
                 }
             });
+            
             if (!bestCoachId) return;
+            
             let spokenCoachId = bestCoachId.replace("GEN-", "General ").replace("SLR-", "S L R ");
             let posEng = bestIndex < (bogies.length / 2) ? "front" : "back";
+            let posTel = bestIndex < (bogies.length / 2) ? "ముందు" : "వెనుక";
+
+            let engText = `Next station is ${nextStation}. The optimal coach is ${spokenCoachId}, located at the ${posEng} of the train.`;
+            let telText = `తదుపరి స్టేషన్ ${nextStation}. ఉత్తమ కోచ్ ${spokenCoachId}, రైలు ${posTel} భాగంలో ఉంది.`;
+
+            triggerSpeech(engText, 'en-IN', () => {
+                setTimeout(() => triggerSpeech(telText, 'te-IN'), 800);
+            });
+        }
+
+        function triggerSpeech(text, targetLang, callback) {
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.rate = 0.9; 
+            utterance.pitch = 1.0;
             
-            const utterance = new SpeechSynthesisUtterance(`The optimal coach is ${spokenCoachId}, located at the ${posEng} of the train.`);
-            utterance.rate = 0.9; window.speechSynthesis.speak(utterance);
+            const voices = window.speechSynthesis.getVoices();
+            let selectedVoice = null;
+
+            if (targetLang === 'en-IN') {
+                selectedVoice = voices.find(v => v.lang === 'en-IN' || v.name.toLowerCase().includes('india') || v.name.toLowerCase().includes('neerja'));
+                if (!selectedVoice) selectedVoice = voices.find(v => v.lang.startsWith('en'));
+            } 
+            else if (targetLang === 'te-IN') {
+                selectedVoice = voices.find(v => v.lang === 'te-IN' || v.lang === 'te' || v.name.toLowerCase().includes('telugu'));
+            }
+
+            if (selectedVoice) {
+                utterance.voice = selectedVoice;
+                utterance.lang = selectedVoice.lang; 
+            } else {
+                utterance.lang = targetLang;
+            }
+
+            if (callback) {
+                utterance.onend = callback;
+            }
+            window.speechSynthesis.speak(utterance);
         }
     </script>
 </body>

@@ -2,7 +2,7 @@
 Central Management Server (RailVision)
 --------------------------------------
 Handles API routing, global state synchronization, historical logging, 
-and advanced predictive passenger distribution modeling based on UTS data.
+predictive passenger distribution, and Dynamic Loco Reversal.
 """
 
 from flask import Flask, render_template, jsonify, request, send_from_directory
@@ -18,8 +18,8 @@ from ultralytics import YOLO
 app = Flask(__name__)
 CORS(app)
 
-print("[SYSTEM] Loading YOLOv8 Model for Validation Panel...")
-model = YOLO("yolov8s.pt") 
+print("[SYSTEM] Loading YOLOv8 Segmentation Model for Validation Panel...")
+model = YOLO("yolov8s-seg.pt") 
 
 TRAIN_DB = {}
 ALL_STATIONS = set()
@@ -30,8 +30,6 @@ GLOBAL_STATE = {
     "station_index": 0
 }
 
-# Stores the raw YOLO density output from the edge node
-# The displayed 'crowd' is mathematically adjusted from this base using UTS data.
 train_state_coaches = {
     "GEN-1": {"yolo_base": 0, "image": None},
     "GEN-2": {"yolo_base": 0, "image": None},
@@ -53,15 +51,15 @@ def load_train_database():
                 composition = [{"id": "LOCO", "type": "LOCO", "flags": []}]
                 gen_count, rsrv_count = 1, 1
                 
-                if "1-Front" in row['Female_Coach_Pos']: composition.append({"id": "SLR-1", "type": "SLR", "flags": ["female"]})
-                for _ in range(int(row['Gen_Front'])):
+                if "1-Front" in row.get('Female_Coach_Pos', ''): composition.append({"id": "SLR-1", "type": "SLR", "flags": ["disabled"]})
+                for _ in range(int(row.get('Gen_Front', 0))):
                     composition.append({"id": f"GEN-{gen_count}", "type": "GEN", "flags": []}); gen_count += 1
-                for _ in range(int(row['Reserved_Coaches'])):
+                for _ in range(int(row.get('Reserved_Coaches', 0))):
                     composition.append({"id": f"RSRV-{rsrv_count}", "type": "RSRV", "flags": []}); rsrv_count += 1
-                if "1-Middle" in row['Female_Coach_Pos']: composition.append({"id": "SLR-M", "type": "SLR", "flags": ["female"]})
-                for _ in range(int(row['Gen_Back'])):
+                if "1-Middle" in row.get('Female_Coach_Pos', ''): composition.append({"id": "SLR-M", "type": "SLR", "flags": []})
+                for _ in range(int(row.get('Gen_Back', 0))):
                     composition.append({"id": f"GEN-{gen_count}", "type": "GEN", "flags": []}); gen_count += 1
-                if "1-Back" in row['Female_Coach_Pos']: composition.append({"id": "SLR-2", "type": "SLR", "flags": ["female"]})
+                if "1-Back" in row.get('Female_Coach_Pos', ''): composition.append({"id": "SLR-2", "type": "SLR", "flags": ["female"]})
                     
                 stations_data = []
                 for idx, st in enumerate(row['Halts'].split('|')):
@@ -69,44 +67,38 @@ def load_train_database():
                     ALL_STATIONS.add(fname)
                     stations_data.append({"name": fname, "code": st, "arr": "--:--", "dep": "--:--"})
                 
+                # --- UPDATED: Sets BOTH BZA and VSKP as reversal stations ---
+                reversals = row.get('Reversal_Stations', 'BZA|VSKP').split('|')
+                
                 t_no = row['Train_No']
                 TRAIN_DB[t_no] = {
                     "number": t_no, "name": row['Train_Name'], "type": row['Train_Type'],
                     "route_start": format_station(row['Origin']), "route_end": format_station(row['Destination']),
-                    "stations": stations_data, "composition": composition
+                    "stations": stations_data, "composition": composition,
+                    "reversals": [r for r in reversals if r]
                 }
                 UTS_DB[t_no] = {st['name'].split(' (')[0]: {'boarding': 0, 'departing': 0} for st in stations_data}
     except Exception as e: print(f"[ERROR] DB Load Failed: {e}")
 
 load_train_database()
 
+PASSENGER_DENSITY_IMPACT = 0.83 
+
 def distribute_passengers(total_passengers, base_densities, is_boarding=True):
-    """
-    Advanced Distribution Algorithm.
-    Uses squared weighting to exponentially favor empty coaches when boarding, 
-    and exponentially favor crowded coaches when departing.
-    """
     distributed_changes = {k: 0 for k in base_densities.keys()}
     if total_passengers <= 0: return distributed_changes
 
-    if is_boarding:
-        # Square the empty space to heavily prioritize unoccupied coaches
-        weights = {k: max(0, 100 - v)**2 for k, v in base_densities.items()}
-    else:
-        # Square the occupied space to prioritize people leaving crowded coaches
-        weights = {k: v**2 for k, v in base_densities.items()}
+    if is_boarding: weights = {k: max(0, 100 - v)**2 for k, v in base_densities.items()}
+    else: weights = {k: v**2 for k, v in base_densities.items()}
         
     total_weight = sum(weights.values())
-    
-    # Fallback to equal distribution if weights zero out
     if total_weight == 0:
         weights = {k: 1 for k in base_densities.keys()}
         total_weight = len(base_densities)
 
     for k in distributed_changes.keys():
-        # Conversion: 1 passenger occupies roughly 0.7% of a standard general coach
-        density_change = (total_passengers * (weights[k] / total_weight)) * 0.7
-        distributed_changes[k] = density_change
+        passengers_in_coach = total_passengers * (weights[k] / total_weight)
+        distributed_changes[k] = passengers_in_coach * PASSENGER_DENSITY_IMPACT
 
     return distributed_changes
 
@@ -150,10 +142,17 @@ def book_uts():
     src = data['source']
     dest = data['destination']
     count = data['passengers']
-    
     if t_no in UTS_DB:
         if src in UTS_DB[t_no]: UTS_DB[t_no][src]['boarding'] += count
         if dest in UTS_DB[t_no]: UTS_DB[t_no][dest]['departing'] += count
+    return jsonify({"status": "success"})
+
+@app.route('/api/reset_uts', methods=['POST'])
+def reset_uts():
+    for t_no in UTS_DB:
+        for st in UTS_DB[t_no]:
+            UTS_DB[t_no][st]['boarding'] = 0
+            UTS_DB[t_no][st]['departing'] = 0
     return jsonify({"status": "success"})
 
 @app.route('/api/admin/set_train', methods=['POST'])
@@ -165,40 +164,44 @@ def set_train():
 @app.route('/api/admin/depart', methods=['POST'])
 def depart():
     if not GLOBAL_STATE['active_train']: return jsonify({"error": "No train active"})
-    
     t_no = GLOBAL_STATE['active_train']
     train_info = TRAIN_DB[t_no]
     curr_idx = GLOBAL_STATE['station_index']
     
-    if curr_idx >= len(train_info['stations']) - 1:
-        return jsonify({"error": "End of journey reached"})
+    if curr_idx >= len(train_info['stations']) - 1: return jsonify({"error": "End of journey reached"})
 
     curr_st = train_info['stations'][curr_idx]['name'].split(' (')[0]
     next_st = train_info['stations'][curr_idx + 1]['name'].split(' (')[0]
 
-    # Calculate average density for logging
     total_crowd = sum(c['yolo_base'] for c in train_state_coaches.values())
     avg_val = round(total_crowd / max(1, len(train_state_coaches)), 2)
     crowd_cat = "Critical" if avg_val > 85 else "High" if avg_val > 60 else "Medium" if avg_val > 30 else "Low"
     
-    row = [datetime.now().strftime("%d-%m-%Y"), datetime.now().strftime("%H:%M:%S"), t_no, train_info['route_start'], train_info['route_end'], curr_st, next_st, avg_val, crowd_cat]
+    row = [datetime.now().strftime("%d-%m-%Y"), datetime.now().strftime("%A"), t_no, train_info['route_start'], train_info['route_end'], curr_st, next_st, avg_val, crowd_cat]
     file_exists = os.path.isfile('historical_crowd_data.csv')
     with open('historical_crowd_data.csv', mode='a', newline='') as file:
         writer = csv.writer(file)
-        if not file_exists: writer.writerow(['Date', 'Time', 'Train No', 'Route Start', 'Route End', 'Current Station', 'Next Station', 'Average Crowd', 'Crowd Category'])
+        if not file_exists: writer.writerow(['Date', 'Day', 'Train No', 'Route Start', 'Route End', 'Current Station', 'Next Station', 'Average Crowd', 'Crowd Category'])
         writer.writerow(row)
 
     GLOBAL_STATE['station_index'] += 1
+    
+    if GLOBAL_STATE['station_index'] >= len(train_info['stations']) - 1:
+        if t_no in UTS_DB:
+            for st in UTS_DB[t_no]:
+                UTS_DB[t_no][st]['boarding'] = 0
+                UTS_DB[t_no][st]['departing'] = 0
+
     return jsonify({"status": "success", "new_index": GLOBAL_STATE['station_index']})
 
 @app.route('/api/update_crowd', methods=['POST'])
 def update_crowd():
-    # Called exclusively by edge_node.py
     data = request.json
     coach_id = data.get('coach_id')
     if coach_id in train_state_coaches:
         train_state_coaches[coach_id]['yolo_base'] = data.get('crowd_percent')
-        train_state_coaches[coach_id]['image'] = f"/static/captures/{coach_id}_live.jpg"
+        current_time = int(datetime.now().timestamp())
+        train_state_coaches[coach_id]['image'] = f"/static/captures/{coach_id}_live.jpg?t={current_time}"
     return jsonify({"status": "success"})
 
 @app.route('/api/get_live_status', methods=['GET'])
@@ -210,83 +213,106 @@ def get_live_status():
     curr_idx = GLOBAL_STATE['station_index']
     total_stations = len(train_info['stations'])
     
-    is_final_station = (curr_idx == total_stations - 1)
-    is_penultimate = (curr_idx == total_stations - 2)
+    is_final_station = (curr_idx >= total_stations - 1)
+    is_penultimate_station = (curr_idx == total_stations - 2)
 
-    curr_st = train_info['stations'][curr_idx]['name'].split(' (')[0]
     next_st = train_info['stations'][curr_idx + 1]['name'].split(' (')[0] if not is_final_station else None
 
-    # Retrieve UTS data for mathematical modifications
-    curr_departing = UTS_DB[t_no][curr_st]['departing'] if curr_st in UTS_DB[t_no] else 0
-    curr_boarding = UTS_DB[t_no][curr_st]['boarding'] if curr_st in UTS_DB[t_no] else 0
-    
+    # --- NEW: LOCO REVERSAL LOGIC ---
+    reversal_count = 0
+    # Check if we have arrived at or passed any reversal stations
+    for i in range(curr_idx + 1):
+        if i < len(train_info['stations']):
+            st_code = train_info['stations'][i]['code']
+            if st_code in train_info.get('reversals', []):
+                reversal_count += 1
+                
+    active_comp = list(train_info['composition'])
+    # If the train has reversed an odd number of times, flip the coaches
+    is_reversed = False
+    if reversal_count % 2 == 1:
+        is_reversed = True
+        loco = active_comp.pop(0) # Remove engine
+        active_comp.reverse()     # Flip coaches
+        active_comp.insert(0, loco) # Put engine back on the new front
+
     next_departing = UTS_DB[t_no][next_st]['departing'] if next_st and next_st in UTS_DB[t_no] else 0
     next_boarding = UTS_DB[t_no][next_st]['boarding'] if next_st and next_st in UTS_DB[t_no] else 0
 
-    base_densities = {k: v['yolo_base'] for k, v in train_state_coaches.items()}
-    
-    # Calculate Live Transformations based on UTS activity at CURRENT station
-    curr_dep_dist = distribute_passengers(curr_departing, base_densities, is_boarding=False)
-    curr_brd_dist = distribute_passengers(curr_boarding, base_densities, is_boarding=True)
-
     live_coaches = {}
+    current_live_densities = {}
+    
     for coach_id, cdata in train_state_coaches.items():
-        if is_final_station:
-            live_crowd = 0; expected_crowd = 0
-        else:
-            # Live Crowd = YOLO Base - Current Departures + Current Boardings
-            live_crowd = cdata['yolo_base'] - curr_dep_dist[coach_id] + curr_brd_dist[coach_id]
-            live_crowd = max(0, min(int(live_crowd), 100))
-            
-            if is_penultimate:
-                expected_crowd = 0
-            else:
-                # Expected Crowd = Live Crowd - Future Departures + Future Boardings
-                next_dep_dist = distribute_passengers(next_departing, {coach_id: live_crowd}, is_boarding=False)
-                next_brd_dist = distribute_passengers(next_boarding, {coach_id: live_crowd}, is_boarding=True)
-                expected = live_crowd - next_dep_dist[coach_id] + next_brd_dist[coach_id]
-                expected_crowd = max(0, min(int(expected), 100))
+        current_live_densities[coach_id] = cdata['yolo_base']
+
+    next_dep_dist = distribute_passengers(next_departing, current_live_densities, is_boarding=False)
+
+    post_halt_densities = {}
+    for coach_id, live_crowd in current_live_densities.items():
+        post_halt_densities[coach_id] = max(0, live_crowd - next_dep_dist[coach_id])
+
+    next_brd_dist = distribute_passengers(next_boarding, post_halt_densities, is_boarding=True)
+
+    for coach_id, live_crowd in current_live_densities.items():
+        if is_final_station or is_penultimate_station: expected = 0 
+        else: expected = post_halt_densities[coach_id] + next_brd_dist[coach_id]
 
         live_coaches[coach_id] = {
             "crowd": live_crowd, 
-            "expected": expected_crowd, 
-            "image": cdata['image']
+            "expected": max(0, min(int(expected), 100)),
+            "image": train_state_coaches[coach_id]['image']
         }
 
-    return jsonify({"active_train": t_no, "station_index": curr_idx, "train_data": train_info, "coaches": live_coaches})
+    return jsonify({
+        "active_train": t_no, 
+        "station_index": curr_idx, 
+        "train_data": train_info, 
+        "coaches": live_coaches,
+        "active_composition": active_comp, # Backend sends the flipped array!
+        "is_reversed": is_reversed
+    })
 
 @app.route('/api/demo_process', methods=['POST'])
 def demo_process():
-    """ Methodology Validation API for Panel Presentation """
     try:
         data = request.json
         encoded_data = data.get('image').split(',')[1]
         nparr = np.frombuffer(base64.b64decode(encoded_data), np.uint8)
         img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-
         h, w = img.shape[:2]
-        boxes = model.predict(img, classes=[0], conf=0.15, verbose=False)[0].boxes.xyxy.cpu().numpy()
         
-        overlay = np.zeros_like(img)
-        total_weighted_mass = 0
-        
-        for box in boxes:
-            x1, y1, x2, y2 = map(int, box[:4])
-            feet_x = int((x1 + x2) / 2)
-            feet_y = int(y2)
-            
-            depth_ratio = 1.0 - (feet_y / h) 
-            occlusion_weight = 1.0 + (depth_ratio * 2.0) 
-            total_weighted_mass += occlusion_weight
-            
-            radius = int(w * 0.05 * (feet_y / h)) 
-            if radius > 0:
-                cv2.circle(overlay, (feet_x, feet_y), radius, (0, 0, 255), -1)
-                cv2.rectangle(overlay, (x1, int(y1 + (y2-y1)*0.2)), (x2, y2), (0, 0, 255), 2)
+        results = model.predict(img, classes=[0], conf=0.25, verbose=False)
+        if len(results[0].boxes) == 0 or results[0].masks is None:
+            return jsonify({"status": "success", "density": 0, "processed_image": data.get('image')})
 
-        density = min(int((total_weighted_mass / 35.0) * 100), 100)
-        visual_img = cv2.addWeighted(img, 0.7, overlay, 0.6, 0)
-        cv2.putText(visual_img, f"Mass Index: {round(total_weighted_mass,1)} | Spatial Density: {density}%", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 255), 2)
+        masks = results[0].masks.data.cpu().numpy()
+        combined_mask = np.any(masks, axis=0).astype(np.uint8) * 255
+        combined_mask = cv2.resize(combined_mask, (w, h), interpolation=cv2.INTER_NEAREST)
+
+        ceiling_cutoff = int(h * 0.30)
+        roi_mask = combined_mask[ceiling_cutoff:h, 0:w]
+        
+        occupied_human_pixels = cv2.countNonZero(roi_mask)
+        total_roi_pixels = w * (h - ceiling_cutoff)
+        
+        pixel_fill_ratio = occupied_human_pixels / total_roi_pixels
+        MAX_FILL_RATIO = 0.50 
+        
+        density = int((pixel_fill_ratio / MAX_FILL_RATIO) * 100)
+        density = min(max(density, 0), 100) 
+
+        visual_img = img.copy()
+        color_overlay = np.zeros_like(visual_img)
+        mask_color = [0, 0, 255] if density >= 85 else [0, 255, 0] 
+        color_overlay[:, :] = mask_color
+        
+        colored_mask = cv2.bitwise_and(color_overlay, color_overlay, mask=combined_mask)
+        cv2.addWeighted(colored_mask, 0.6, visual_img, 1.0, 0, visual_img)
+        cv2.line(visual_img, (0, ceiling_cutoff), (w, ceiling_cutoff), (0, 255, 255), 2)
+        
+        status_color = (0, 0, 255) if density >= 85 else ((0, 255, 255) if density >= 50 else (0, 255, 0))
+        cv2.putText(visual_img, f"Human Pixel Area: {int(pixel_fill_ratio*100)}%", (15, 35), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+        cv2.putText(visual_img, f"Calculated Density: {density}%", (15, 70), cv2.FONT_HERSHEY_SIMPLEX, 1.0, status_color, 3)
         
         _, buffer = cv2.imencode('.jpg', visual_img)
         processed_b64 = "data:image/jpeg;base64," + base64.b64encode(buffer).decode('utf-8')

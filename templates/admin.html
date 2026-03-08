@@ -3,39 +3,40 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="static/favicon.png">
     <title>RailVision: Admin Console</title>
     <style>
         :root { --primary: #0056b3; --bg: #f4f7f6; --text-main: #333; --border: #ccc; }
+        * { box-sizing: border-box; }
         body { font-family: Arial, sans-serif; background-color: var(--bg); color: var(--text-main); margin: 0; padding: 0; }
         
-        /* Unified Header */
         .top-navbar { background-color: #fff; border-bottom: 2px solid var(--primary); padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 20px;}
         .top-navbar h1 { margin: 0; font-size: 22px; color: var(--primary); text-transform: uppercase; letter-spacing: 1px;}
         .system-status { font-size: 13px; font-weight: bold; padding: 5px 10px; background: #e8f5e9; color: #155724; border: 1px solid #c3e6cb; border-radius: 4px; }
         
-        .container { max-width: 1200px; margin: 0 auto; padding: 0 20px; }
+        .brand-container { display: flex; align-items: center; gap: 15px; }
+        .ir-logo { height: 38px; width: auto; object-fit: contain; }
+
+        .container { max-width: 1200px; margin: 0 auto; padding: 0 20px; width: 100%;}
         .grid-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
         
-        /* Standardized Panels */
         .panel { background-color: #fff; border: 1px solid var(--border); border-radius: 4px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
         .panel-header { font-size: 16px; color: var(--primary); margin-top: 0; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px; font-weight: bold; }
         
         .form-row { display: flex; gap: 10px; margin-bottom: 15px; align-items: center; position: relative;}
-        input[type="text"] { flex: 1; padding: 10px; border: 1px solid var(--border); border-radius: 4px; font-size: 14px; }
+        input[type="text"] { flex: 1; padding: 10px; border: 1px solid var(--border); border-radius: 4px; font-size: 14px; width: 100%;}
         
-        .btn { padding: 10px 15px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; color: white; font-size: 14px; transition: background 0.2s;}
+        .btn { padding: 10px 15px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; color: white; font-size: 14px; transition: background 0.2s; width: 100%; text-align: center;}
         .btn-primary { background: var(--primary); } .btn-primary:hover { background: #004494; }
         .btn-success { background: #28a745; } .btn-success:hover { background: #218838; }
-        .btn-full { width: 100%; display: block; margin-top: 10px; }
+        .btn-full { display: block; margin-top: 10px; }
         
-        /* Auto-complete dropdown */
-        .autocomplete-list { position: absolute; top: 100%; left: 0; right: 130px; background: #fff; border: 1px solid var(--border); z-index: 99; max-height: 150px; overflow-y: auto; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: none; }
+        .autocomplete-list { position: absolute; top: 100%; left: 0; right: 0; background: #fff; border: 1px solid var(--border); z-index: 99; max-height: 150px; overflow-y: auto; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: none; }
         .autocomplete-list div { padding: 10px; cursor: pointer; border-bottom: 1px solid #eee; font-size: 14px;}
         .autocomplete-list div:hover { background-color: #f8f9fa; }
 
         .status-text { margin-bottom: 15px; color: #555; font-size: 15px; background: #f8f9fa; padding: 10px; border: 1px solid #eee; border-radius: 4px;}
         
-        /* Camera Grid */
         .cam-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 15px; }
         .cam-card { border: 1px solid var(--border); border-radius: 4px; background: #fff; overflow: hidden; }
         .cam-feed { width: 100%; height: 140px; object-fit: cover; border-bottom: 1px solid var(--border); background: #eee; display: block;}
@@ -45,24 +46,35 @@
         .badge { padding: 3px 6px; border-radius: 3px; font-size: 11px; font-weight: bold; color: white; display: inline-block; margin-bottom: 2px;}
         .exp-text { font-size: 11px; color: #666; font-weight: bold;}
 
-        /* Demo Tool */
         .demo-layout { display: flex; gap: 20px; align-items: stretch; }
         .demo-controls { flex: 1; background: #f8f9fa; padding: 15px; border: 1px dashed #ccc; border-radius: 4px; text-align: center;}
-        .demo-output { flex: 2; text-align: center; border: 1px solid #eee; padding: 10px; background: #fafafa;}
+        .demo-output { flex: 2; text-align: center; border: 1px solid #eee; padding: 10px; background: #fafafa; display: flex; flex-direction: column; align-items: center; justify-content: center;}
         .demo-output img { max-width: 100%; max-height: 350px; border: 1px solid #ccc; display: none;}
+
+        @media (max-width: 768px) {
+            .top-navbar { flex-direction: column; gap: 15px; padding: 15px; text-align: center;}
+            .grid-layout { grid-template-columns: 1fr; }
+            .form-row { flex-direction: column; align-items: stretch; }
+            .form-row input[type="text"] { width: 100%; }
+            .btn { width: 100%; }
+            .demo-layout { flex-direction: column; }
+            .cam-grid { grid-template-columns: 1fr; }
+        }
     </style>
 </head>
 <body>
     <div class="top-navbar">
-        <h1>RailVision Admin Console</h1>
-        <div class="system-status">● SYSTEM ONLINE</div>
+        <div class="brand-container">
+            <img src="/static/favicon.png" alt="IR Logo" class="ir-logo">
+            <h1>RailVision Admin</h1>
+        </div>
     </div>
 
     <div class="container">
         <div class="grid-layout">
             <div class="panel">
                 <h2 class="panel-header">Train Journey Controller</h2>
-                <div class="form-row">
+                <div class="form-row" style="flex-direction: column;">
                     <input type="text" id="trainNo" placeholder="Search Train Identifier" oninput="filterTrains()" onfocus="filterTrains()">
                     <div id="trainList" class="autocomplete-list"></div>
                     <button class="btn btn-primary" onclick="loadTrain()">Initialize Route</button>
@@ -78,13 +90,12 @@
 
         <div class="panel" style="margin-bottom: 20px;">
             <h2 class="panel-header">Live Edge Node Telemetry</h2>
-            <div class="cam-grid" id="cameraGrid">
-                </div>
+            <div class="cam-grid" id="cameraGrid"></div>
         </div>
 
         <div class="panel" style="margin-bottom: 40px;">
             <h2 class="panel-header">Methodology Validation Tool</h2>
-            <p style="font-size: 13px; color: #666; margin-top: -5px;">Upload a raw image to test the Perspective-Footprint Mapping algorithm locally.</p>
+            <p style="font-size: 13px; color: #666; margin-top: -5px;">Upload a raw image to test the Instance Segmentation algorithm locally.</p>
             
             <div class="demo-layout">
                 <div class="demo-controls">
@@ -102,7 +113,6 @@
     </div>
 
     <script>
-        // ... (Keep existing JavaScript exactly the same as previous admin.html) ...
         let allTrains = [];
         let currentStationIndex = -1;
 
@@ -138,7 +148,7 @@
             const res = await fetch('/api/admin/depart', { method: 'POST' });
             const data = await res.json();
             if(data.error) return alert(data.error);
-            document.getElementById('sysMsg').innerText = "Departure logged. Cameras updating.";
+            document.getElementById('sysMsg').innerText = "Departure logged. AI analyzing new station images...";
             fetchAdminData();
         }
 
@@ -155,7 +165,11 @@
                     
                     const grid = document.getElementById('cameraGrid');
                     let requireImageReload = false;
-                    if(idx !== currentStationIndex) { requireImageReload = true; currentStationIndex = idx; }
+                    
+                    if(idx !== currentStationIndex) { 
+                        requireImageReload = true; 
+                        currentStationIndex = idx; 
+                    }
                     if(grid.innerHTML === '') requireImageReload = true;
 
                     if (requireImageReload) {
@@ -163,10 +177,10 @@
                         Object.entries(state.coaches).forEach(([id, info]) => {
                             if(!info.image) return;
                             const color = info.crowd > 85 ? '#dc3545' : (info.crowd > 50 ? '#ffc107' : '#28a745');
-                            const textColor = info.crowd > 50 && info.crowd <= 85 ? '#000' : '#fff'; // Dark text for yellow badge
+                            const textColor = info.crowd > 50 && info.crowd <= 85 ? '#000' : '#fff'; 
                             grid.innerHTML += `
                                 <div class="cam-card">
-                                    <img src="${info.image}?t=${new Date().getTime()}" class="cam-feed">
+                                    <img id="cam-${id}" src="${info.image}" class="cam-feed">
                                     <div class="cam-info">
                                         <div class="cam-id">${id}</div>
                                         <div class="cam-stats">
@@ -177,21 +191,33 @@
                                 </div>`;
                         });
                     } else {
+                        // FIX: This block continuously checks if edge_node finished uploading a new image!
                         Object.entries(state.coaches).forEach(([id, info]) => {
                             const badge = document.getElementById(`badge-${id}`);
                             if(badge) {
+                                // Update text
                                 const color = info.crowd > 85 ? '#dc3545' : (info.crowd > 50 ? '#ffc107' : '#28a745');
                                 const textColor = info.crowd > 50 && info.crowd <= 85 ? '#000' : '#fff';
                                 badge.style.background = color;
                                 badge.style.color = textColor;
                                 badge.innerText = `Live: ${info.crowd}%`;
                                 document.getElementById(`exp-${id}`).innerText = `Expected: ${info.expected}%`;
+                                
+                                // Update Image Dynamically if edge_node provided a new timestamp
+                                const imgEl = document.getElementById(`cam-${id}`);
+                                if (imgEl && info.image) {
+                                    // Check if the current src on the screen ends with the new URL from the server
+                                    if (!imgEl.src.endsWith(info.image)) {
+                                        imgEl.src = info.image;
+                                    }
+                                }
                             }
                         });
                     }
                 }
             } catch(err) {}
         }
+        // Polls the server every 2 seconds
         setInterval(fetchAdminData, 2000);
 
         let demoBase64 = null;
